@@ -13,8 +13,11 @@ Make sure there is RenderSystem_Direct3D11_d in plugins.
 # Structures
 
 Emitters cores - Manage how particles are created/updated.
+
 Emitters instances - Instance of emitter core with position and orientation.
+
 Particles - Stored on GPU side and never read to CPU.
+
 Bucket - Particles from the same emitter are grouped in buckets (64 per bucket by default, may be multiplication of 64 as well).
  Those buckets contains data like active from and to indexes, emitter index and are send to GPU each frame.
 
