@@ -40,5 +40,7 @@ Especially particles vertex and fragment shader source code, as well as depth bu
 https://spotcpp.com/creating-a-custom-hlms-to-add-support-for-wind-and-fog/
 Sample how to create custom hlms in Ogre.
 
-https://forums.ogre3d.org/viewtopic.php?t=96286
+https://forums.ogre3d.org/viewtopic.php?p=550810
+https://forums.ogre3d.org/viewtopic.php?p=550732
+https://forums.ogre3d.org/viewtopic.php?p=550635
 Help from Ogre community.
