@@ -309,7 +309,7 @@ namespace Demo
             outText += StringConverter::toString(info.mAliveParticles).c_str();
             outText += "\nParticles in used buckets capacity: ";
             outText += StringConverter::toString(info.mUsedBucketsParticleCapacity).c_str();
-            outText += "\nParticles created this frame: ";
+            outText += "\nParticles created (alive or created ahead of time): ";
             outText += StringConverter::toString(info.mParticlesCreated).c_str();
             outText += "\nParticles added this frame: ";
             outText += StringConverter::toString(info.mParticlesAddedThisFrame).c_str();
