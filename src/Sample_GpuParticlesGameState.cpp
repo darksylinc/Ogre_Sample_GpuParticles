@@ -43,6 +43,7 @@ namespace Demo
         TutorialGameState( helpDescription ),
         mGpuParticleSystemWorld( 0 ),
         mFireParticleSystem( 0 ),
+        mSparksParticleSystem( 0 ),
         mDirectionalLight( 0 )
     {
     }
