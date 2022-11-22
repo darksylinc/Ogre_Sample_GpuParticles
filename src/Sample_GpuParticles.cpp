@@ -77,7 +77,7 @@ namespace Demo
 
     public:
         Sample_GpuParticlesGraphicsSystem( GameState *gameState ) :
-            GraphicsSystem( gameState )
+            GraphicsSystem( gameState, "../Data/" )
         {
         }
     };
