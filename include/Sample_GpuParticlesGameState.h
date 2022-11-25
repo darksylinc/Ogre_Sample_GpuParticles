@@ -15,8 +15,10 @@ namespace Demo
         float mTimeOfDay;
         int mEmitterInstancesCount;
         GpuParticleSystemWorld* mGpuParticleSystemWorld;
-        GpuParticleSystem* mFireParticleSystem;
-        GpuParticleSystem* mSparksParticleSystem;
+        const GpuParticleSystem* mFireParticleSystem;
+        const GpuParticleSystem* mSparksParticleSystem;
+        GpuParticleSystem* mFireManualParticleSystem;
+        GpuParticleSystem* mSparksManualParticleSystem;
         std::vector<Ogre::uint64> mFireParticleInstances;
 
         Ogre::Light *mDirectionalLight;

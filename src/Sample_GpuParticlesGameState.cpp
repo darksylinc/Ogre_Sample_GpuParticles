@@ -34,6 +34,11 @@
 
 #include <OgreHlmsPbsDatablock.h>
 
+#include <GpuParticles/GpuParticleSystemJsonManager.h>
+#include <GpuParticles/GpuParticleSystemResourceManager.h>
+
+#include <iostream>
+#include <fstream>
 
 using namespace Demo;
 
@@ -44,6 +49,8 @@ namespace Demo
         mGpuParticleSystemWorld( 0 ),
         mFireParticleSystem( 0 ),
         mSparksParticleSystem( 0 ),
+        mFireManualParticleSystem ( 0 ),
+        mSparksManualParticleSystem( 0 ),
         mDirectionalLight( 0 )
     {
     }
@@ -135,7 +142,7 @@ namespace Demo
     void Sample_GpuParticlesGameState::registerParticleEmitters()
     {
         {
-            mFireParticleSystem = new GpuParticleSystem();
+            mFireManualParticleSystem = GpuParticleSystemResourceManager::getSingleton().createParticleSystem("FireManual", "FireManual");
 
             GpuParticleEmitter* emitterCore = new GpuParticleEmitter();
 
@@ -197,12 +204,12 @@ namespace Demo
             emitterCore->mParticleFaderStartTime = 0.1f;
             emitterCore->mParticleFaderEndTime = 0.2f;
 
-            mFireParticleSystem->addEmitter(emitterCore);
+            mFireManualParticleSystem->addEmitter(emitterCore);
         }
-        mGpuParticleSystemWorld->registerEmitterCore(mFireParticleSystem);
+        mGpuParticleSystemWorld->registerEmitterCore(mFireManualParticleSystem);
 
         {
-            mSparksParticleSystem = new GpuParticleSystem();
+            mSparksManualParticleSystem = GpuParticleSystemResourceManager::getSingleton().createParticleSystem("SparksManual", "SparksManual");
 
             GpuParticleEmitter* emitterCore = new GpuParticleEmitter();
 
@@ -226,9 +233,60 @@ namespace Demo
             emitterCore->mUseDepthCollision = true;
             emitterCore->mGravity = Ogre::Vector3(0.0f, -1.0f, 0.0f);
 
-            mSparksParticleSystem->addEmitter(emitterCore);
+            mSparksManualParticleSystem->addEmitter(emitterCore);
         }
-        mGpuParticleSystemWorld->registerEmitterCore(mSparksParticleSystem);
+        mGpuParticleSystemWorld->registerEmitterCore(mSparksManualParticleSystem);
+
+
+        {
+            mFireParticleSystem = GpuParticleSystemResourceManager::getSingleton().getGpuParticleSystem("Fire");
+            mGpuParticleSystemWorld->registerEmitterCore(mFireParticleSystem);
+        }
+
+        {
+            mSparksParticleSystem = GpuParticleSystemResourceManager::getSingleton().getGpuParticleSystem("Sparks");
+            mGpuParticleSystemWorld->registerEmitterCore(mSparksParticleSystem);
+        }
+
+        {
+            Ogre::String outText;
+            GpuParticleSystemJsonManager::getSingleton().saveGpuParticleSystem(mFireParticleSystem, outText);
+
+            std::ofstream myfile;
+            myfile.open("fire.gpuparticle.json");
+            myfile << outText.c_str();
+            myfile.close();
+        }
+
+        {
+            Ogre::String outText;
+            GpuParticleSystemJsonManager::getSingleton().saveGpuParticleSystem(mSparksParticleSystem, outText);
+
+            std::ofstream myfile;
+            myfile.open("sparks.gpuparticle.json");
+            myfile << outText.c_str();
+            myfile.close();
+        }
+
+        {
+            Ogre::String outText;
+            GpuParticleSystemJsonManager::getSingleton().saveGpuParticleSystem(mFireManualParticleSystem, outText);
+
+            std::ofstream myfile;
+            myfile.open("fire_manual.gpuparticle.json");
+            myfile << outText.c_str();
+            myfile.close();
+        }
+
+        {
+            Ogre::String outText;
+            GpuParticleSystemJsonManager::getSingleton().saveGpuParticleSystem(mSparksManualParticleSystem, outText);
+
+            std::ofstream myfile;
+            myfile.open("sparks_manual.gpuparticle.json");
+            myfile << outText.c_str();
+            myfile.close();
+        }
     }
 
     //-----------------------------------------------------------------------------------

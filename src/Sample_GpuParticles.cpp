@@ -16,6 +16,9 @@
 #include "System/Android/AndroidSystems.h"
 #include "System/MainEntryPoints.h"
 
+#include <GpuParticles/GpuParticleSystemJsonManager.h>
+#include <GpuParticles/GpuParticleSystemResourceManager.h>
+
 #if OGRE_PLATFORM == OGRE_PLATFORM_APPLE || OGRE_PLATFORM == OGRE_PLATFORM_APPLE_IOS
     #include "OSX/macUtils.h"
     #if OGRE_PLATFORM == OGRE_PLATFORM_APPLE_IOS
@@ -36,10 +39,13 @@ namespace Demo
                                                     "Sample_GpuParticlesWorkspace", true );
         }
 
-//        virtual void setupResources(void)
-//        {
-//            GraphicsSystem::setupResources();
-//        }
+        virtual void setupResources(void)
+        {
+            GpuParticleSystemResourceManager* gpuParticleSystemResourceManager = new GpuParticleSystemResourceManager();
+            GpuParticleSystemJsonManager* gpuParticleSystemJsonManager = new GpuParticleSystemJsonManager();
+
+            GraphicsSystem::setupResources();
+        }
 
         virtual void registerHlms(void)
         {

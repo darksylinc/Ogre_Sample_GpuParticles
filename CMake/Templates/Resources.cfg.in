@@ -13,6 +13,7 @@ FileSystem=@OGRE_MEDIA_DIR@../media/Materials/textures
 FileSystem=@OGRE_MEDIA_DIR@../media/Hlms/Compute
 FileSystem=@OGRE_MEDIA_DIR@../media/Compositor
 FileSystem=@OGRE_MEDIA_DIR@../media/Compositor/HLSL
+FileSystem=@OGRE_MEDIA_DIR@../media/ParticleSystems
 
 # Do not load this as a resource. It's here merely to tell the code where
 # the Hlms templates are located
