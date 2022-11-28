@@ -68,7 +68,7 @@ namespace Demo
 
 #if OGRE_PLATFORM == OGRE_PLATFORM_APPLE || OGRE_PLATFORM == OGRE_PLATFORM_APPLE_IOS
             Ogre::String rootHlmsFolderParticle = Ogre::macBundlePath() + '/' +
-                                          cf.getSetting( "DoNotUseAsResource", "Hlms", "" );
+                                          cf.getSetting( "DoNotUseAsResourceParticle", "Hlms", "" );
 #else
             Ogre::String rootHlmsFolderParticle = mResourcePath +
                                           cf.getSetting( "DoNotUseAsResourceParticle", "Hlms", "" );
