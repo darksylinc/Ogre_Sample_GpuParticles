@@ -88,7 +88,7 @@ public:
         setTextureReg(Ogre::VertexShader, "texParticleData", ParticleDataTexSlot);
     }
 
-    static void getAdditionalDefaultPaths(Ogre::String &outDataFolderPath, Ogre::StringVector& outLibraryFoldersPaths) {
+    static void getAdditionalDefaultPaths(Ogre::String &outDataFolderPath, Ogre::StringVector& outLibraryFoldersPaths, bool withHlmsPathPrefix = true) {
 
         //We need to know what RenderSystem is currently in use, as the
         //name of the compatible shading language is part of the path
@@ -99,18 +99,24 @@ public:
         else if (renderSystem->getName() == "Metal Rendering Subsystem")
             shaderSyntax = "Metal";
 
+        Ogre::String prefix;
+        if(withHlmsPathPrefix) {
+            prefix = "Hlms/";
+        }
 
         //Fill the library folder paths with the relevant folders
         outLibraryFoldersPaths.clear();
-//        outLibraryFoldersPaths.push_back("Hlms/Particle/" + shaderSyntax);
-        outLibraryFoldersPaths.push_back("Hlms/Particle/Any");
-        outLibraryFoldersPaths.push_back("Hlms/Compute");
+//        outLibraryFoldersPaths.push_back(prefix + "Particle/" + shaderSyntax);
+        outLibraryFoldersPaths.push_back(prefix + "Particle/Any");
+        outLibraryFoldersPaths.push_back(prefix + "Compute");
 
         //Fill the data folder path
-        outDataFolderPath = "Hlms/Particle/" + shaderSyntax;
+        outDataFolderPath = prefix + "Particle/" + shaderSyntax;
     }
 
-    static HlmsParticle* registerHlms(const Ogre::String& rootHlmsFolder, const Ogre::String& particleRootHlmsFolder);
+    static HlmsParticle* registerHlms(const Ogre::String& rootHlmsFolder,
+                                      const Ogre::String& particleRootHlmsFolder,
+                                      bool withHlmsPathPrefix = true);
 
     Ogre::uint32 fillBuffersForV1(const Ogre::HlmsCache* cache,
         const Ogre::QueuedRenderable& queuedRenderable,

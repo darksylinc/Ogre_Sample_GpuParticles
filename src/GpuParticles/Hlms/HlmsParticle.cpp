@@ -119,7 +119,9 @@ void HlmsParticle::calculateHashForPreCreate(Ogre::Renderable* renderable, Ogre:
     }
 }
 
-HlmsParticle* HlmsParticle::registerHlms(const Ogre::String& rootHlmsFolder, const Ogre::String& particleRootHlmsFolder)
+HlmsParticle* HlmsParticle::registerHlms(const Ogre::String& rootHlmsFolder,
+                                         const Ogre::String& particleRootHlmsFolder,
+                                         bool withHlmsPathPrefix)
 {
     bool mainFilesInParticle = true;
 
@@ -129,7 +131,7 @@ HlmsParticle* HlmsParticle::registerHlms(const Ogre::String& rootHlmsFolder, con
     Ogre::StringVector libraryParticleFolderPaths;
 
     getDefaultPaths(mainFolderPath, libraryFolderPaths);
-    getAdditionalDefaultPaths(particleMainFolderPath, libraryParticleFolderPaths);
+    getAdditionalDefaultPaths(particleMainFolderPath, libraryParticleFolderPaths, withHlmsPathPrefix);
     if(mainFilesInParticle) {
         libraryFolderPaths.push_back(mainFolderPath);
     }
