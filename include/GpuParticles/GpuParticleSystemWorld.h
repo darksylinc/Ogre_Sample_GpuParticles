@@ -200,7 +200,7 @@ public:
     /// @param emitterNode - optional, if there is no node, offset will be used and
     ///                      emitter will be treated as static.
     /// @returns id
-    Ogre::uint64 start(const GpuParticleEmitter* emitterCore, Ogre::Node* emitterNode, const Ogre::Vector3& emitterPos = Ogre::Vector3::ZERO, const Ogre::Quaternion& emitterRot = Ogre::Quaternion());
+    Ogre::uint64 start(const GpuParticleEmitter* emitterCore, Ogre::Node* parentNode, const Ogre::Vector3& parentPos = Ogre::Vector3::ZERO, const Ogre::Quaternion& parentRot = Ogre::Quaternion());
 
     /// Adds multiple emitters. If there is not enough bucket, no particle emitter will be added.
     /// @param emitters - each emitter may have different offset.
@@ -356,6 +356,8 @@ private:
     void updateInstancesToCores();
     void destroyParticleRenderable(const Ogre::String& datablockName);
     void stopEmitter(int instanceIndex, bool destroyAllParticles);
+    /// Can assert if not enough buckets.
+    void createEmitterInstance(const GpuParticleEmitter* gpuParticleEmitterCore, const Ogre::Matrix4& matParent, Ogre::Node* parentNode, Ogre::uint64 idCounter);
 
     ParticleRenderable* getRenderableForEmitterCore(const GpuParticleEmitter* emitterCore) const;
 

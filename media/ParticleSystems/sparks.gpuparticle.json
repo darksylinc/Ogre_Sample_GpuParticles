@@ -10,7 +10,7 @@
 					"rot": [1, 0, 0, 0],
 					"spriteMode": "",
 					"datablock": "Examples/SparkParticle",
-					"spriteNames": [],
+					"spriteTrack": [],
 					"emitterLifetime": 0.2,
 					"emissionRate": 1,
 					"burstMode": true,

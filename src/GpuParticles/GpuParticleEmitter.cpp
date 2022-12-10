@@ -142,3 +142,8 @@ bool GpuParticleEmitter::isImmediateBurst() const
 {
     return mBurstMode && isImmediate();
 }
+
+GpuParticleEmitter* GpuParticleEmitter::clone()
+{
+    return OGRE_NEW GpuParticleEmitter(*this);
+}

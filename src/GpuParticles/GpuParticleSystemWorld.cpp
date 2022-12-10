@@ -447,7 +447,47 @@ void GpuParticleSystemWorld::init(uint32 maxParticles,
     initBuffers();
 }
 
-Ogre::uint64 GpuParticleSystemWorld::start(const GpuParticleEmitter* emitterCore, Ogre::Node* emitterNode, const Vector3& emitterPos, const Quaternion& emitterRot)
+void GpuParticleSystemWorld::createEmitterInstance(const GpuParticleEmitter* gpuParticleEmitterCore,
+                                                   const Ogre::Matrix4& matParent,
+                                                   Ogre::Node* parentNode,
+                                                   Ogre::uint64 idCounter)
+{
+    mEmitterInstances.push_back(EmitterInstance());
+    EmitterInstance& emitter = mEmitterInstances[mEmitterInstances.size()-1];
+    emitter.mGpuParticleEmitter = gpuParticleEmitterCore;
+
+    Ogre::Matrix4 matOffset;
+    matOffset.makeTransform(gpuParticleEmitterCore->mPos, Ogre::Vector3::UNIT_SCALE, gpuParticleEmitterCore->mRot);
+
+    Ogre::Matrix4 mat;
+    mat = matParent * matOffset;
+
+    Ogre::Vector3 scaleTemp;
+    mat.decomposition(emitter.mPos, scaleTemp, emitter.mRot);
+
+    emitter.mNode = parentNode;
+    bool ok = requestBuckets(emitter);
+    assert(ok); // already checked if we can allocate
+
+    for (size_t j = 0; j < mRegisteredEmitterCores.size(); ++j) {
+        if(emitter.mGpuParticleEmitter == mRegisteredEmitterCores[j]) {
+            emitter.mGpuParticleEmitterIndex = j;
+            break;
+        }
+    }
+
+    for (size_t j = 0; j < mParticleRenderables.size(); ++j) {
+        ParticleRenderable* particleRenderable = mParticleRenderables[j];
+        if(particleRenderable->mDatablockName == gpuParticleEmitterCore->mDatablockName) {
+            emitter.mParticleRenderable = particleRenderable;
+            break;
+        }
+    }
+
+    emitter.mId = idCounter;
+}
+
+Ogre::uint64 GpuParticleSystemWorld::start(const GpuParticleEmitter* emitterCore, Ogre::Node* parentNode, const Ogre::Vector3& parentPos, const Ogre::Quaternion& parentRot)
 {
     if(mRegisteredEmitterCoresSet.find(emitterCore) == mRegisteredEmitterCoresSet.end()) {
         OGRE_EXCEPT( Exception::ERR_INVALIDPARAMS,
@@ -462,38 +502,19 @@ Ogre::uint64 GpuParticleSystemWorld::start(const GpuParticleEmitter* emitterCore
         return 0;
     }
 
-    mEmitterInstances.push_back(EmitterInstance());
-    EmitterInstance& emitter = mEmitterInstances[mEmitterInstances.size()-1];
-    emitter.mGpuParticleEmitter = emitterCore;
-    emitter.mPos = emitterPos;
-    emitter.mRot = emitterRot;
-    emitter.mNode = emitterNode;
-    if(!requestBuckets(emitter)) {
-        // don't alloc
-        mEmitterInstances.pop_back();
-
+    Ogre::uint32 requiredBuckets = estimateRequiredBucketCount(emitterCore);
+    if(!canAllocateBuckets(requiredBuckets)) {
         Ogre::LogManager::getSingletonPtr()->logMessage("GpuParticleSystemWorld warning: Could not add particle system instance: not enough particles available!", Ogre::LML_NORMAL);
-
         return 0;
     }
 
-    for (size_t j = 0; j < mRegisteredEmitterCores.size(); ++j) {
-        if(emitter.mGpuParticleEmitter == mRegisteredEmitterCores[j]) {
-            emitter.mGpuParticleEmitterIndex = j;
-            break;
-        }
-    }
-
-    for (size_t j = 0; j < mParticleRenderables.size(); ++j) {
-        ParticleRenderable* particleRenderable = mParticleRenderables[j];
-        if(particleRenderable->mDatablockName == emitterCore->mDatablockName) {
-            emitter.mParticleRenderable = particleRenderable;
-            break;
-        }
-    }
-
     Ogre::uint64 idCounter = getNextId();
-    emitter.mId = idCounter;
+
+    Ogre::Matrix4 matParent;
+    matParent.makeTransform(parentPos, Ogre::Vector3::UNIT_SCALE, parentRot);
+
+    createEmitterInstance(emitterCore, matParent, parentNode, idCounter);
+
     return idCounter;
 }
 
@@ -530,39 +551,7 @@ uint64 GpuParticleSystemWorld::start(const std::vector<GpuParticleEmitter*>& emi
 
     for (size_t i = 0; i < emitters.size(); ++i) {
         const GpuParticleEmitter* gpuParticleEmitterCore = emitters[i];
-        mEmitterInstances.push_back(EmitterInstance());
-        EmitterInstance& emitter = mEmitterInstances[mEmitterInstances.size()-1];
-        emitter.mGpuParticleEmitter = gpuParticleEmitterCore;
-
-        Ogre::Matrix4 matOffset;
-        matOffset.makeTransform(gpuParticleEmitterCore->mPos, Ogre::Vector3::UNIT_SCALE, gpuParticleEmitterCore->mRot);
-
-        Ogre::Matrix4 mat;
-        mat = matParent * matOffset;
-
-        Ogre::Vector3 scaleTemp;
-        mat.decomposition(emitter.mPos, scaleTemp, emitter.mRot);
-
-        emitter.mNode = parentNode;
-        bool ok = requestBuckets(emitter);
-        assert(ok); // already checked if we can allocate
-
-        for (size_t j = 0; j < mRegisteredEmitterCores.size(); ++j) {
-            if(emitter.mGpuParticleEmitter == mRegisteredEmitterCores[j]) {
-                emitter.mGpuParticleEmitterIndex = j;
-                break;
-            }
-        }
-
-        for (size_t j = 0; j < mParticleRenderables.size(); ++j) {
-            ParticleRenderable* particleRenderable = mParticleRenderables[j];
-            if(particleRenderable->mDatablockName == gpuParticleEmitterCore->mDatablockName) {
-                emitter.mParticleRenderable = particleRenderable;
-                break;
-            }
-        }
-
-        emitter.mId = idCounter;
+        createEmitterInstance(gpuParticleEmitterCore, matParent, parentNode, idCounter);
     }
 
     return idCounter;
@@ -1085,8 +1074,19 @@ void GpuParticleSystemWorld::uploadToGpuEmitterCores()
         const GpuParticleEmitter* emitterCore = mRegisteredEmitterCores[i];
         ParticleRenderable* particleRenderable = getRenderableForEmitterCore(emitterCore);
         Ogre::Vector2 invSize(0.0f, 0.0f);
+        Ogre::uint8 flipbookSizeX = 1;
+        Ogre::uint8 flipbookSizeY = 1;
+        float flipbookSizeInvX = 1.0f;
+        float flipbookSizeInvY = 1.0f;
+
         if(particleRenderable) {
             invSize = particleRenderable->mParticleDatablock->getInvTextureSize();
+
+            flipbookSizeX = particleRenderable->mParticleDatablock->getFlipbookSize().col;
+            flipbookSizeY = particleRenderable->mParticleDatablock->getFlipbookSize().row;
+
+            flipbookSizeInvX = 1.0f / (float)flipbookSizeX;
+            flipbookSizeInvY = 1.0f / (float)flipbookSizeY;
         }
 
         *buffer++ = emitterCore->mColourA.r;
@@ -1123,7 +1123,7 @@ void GpuParticleSystemWorld::uploadToGpuEmitterCores()
 
         uploadU32ToFloatArray(buffer, mUseDepthTexture && emitterCore->mUseDepthCollision ? 1u : 0u);
 
-        Ogre::uint32 spriteCount = std::min<Ogre::uint32>(emitterCore->mSpriteNames.size(), GpuParticleEmitter::MaxSprites);
+        Ogre::uint32 spriteCount = std::min<Ogre::uint32>(emitterCore->mSpriteFlipbookCoords.size(), GpuParticleEmitter::MaxSprites);
         uploadU32ToFloatArray(buffer, emitterCore->mSpriteMode == GpuParticleEmitter::SpriteMode::SetWithStart ? (Ogre::uint32)spriteCount : (Ogre::uint32)0);
         uploadU32ToFloatArray(buffer, (Ogre::uint32) (emitterCore->mSpriteMode == GpuParticleEmitter::SpriteMode::ChangeWithTrack) );
 
@@ -1138,13 +1138,24 @@ void GpuParticleSystemWorld::uploadToGpuEmitterCores()
 
         Ogre::Vector2 bottomLeft = Ogre::Vector2::ZERO;
         Ogre::Vector2 texCoordSize = Ogre::Vector2(1.0f, 1.0f);
+
         for (size_t i = 0; i < GpuParticleEmitter::MaxSprites; ++i) {
             // remember last value
-            if(particleRenderable && i < emitterCore->mSpriteNames.size()) {
-                const HlmsParticleDatablock::Sprite* sprite = particleRenderable->mParticleDatablock->getSprite(emitterCore->mSpriteNames[i]);
-                if(sprite) {
-                    bottomLeft = Ogre::Vector2(sprite->mLeft * invSize.x, sprite->mBottom * invSize.y);
-                    texCoordSize = Ogre::Vector2(sprite->mSizeX * invSize.x, sprite->mSizeY * invSize.y);
+            if(particleRenderable && i < emitterCore->mSpriteFlipbookCoords.size()) {
+
+                const HlmsParticleDatablock::SpriteCoord& spriteCoord = emitterCore->mSpriteFlipbookCoords[i];
+                if(particleRenderable->mParticleDatablock->getIsFlipbook()) {
+                    float percentX = (float)spriteCoord.col / (float)flipbookSizeX;
+                    float percentY = (float)spriteCoord.row / (float)flipbookSizeY;
+                    bottomLeft = Ogre::Vector2(percentX, percentY);
+                    texCoordSize = Ogre::Vector2(flipbookSizeInvX, flipbookSizeInvY);
+                }
+                else {
+                    const HlmsParticleDatablock::Sprite* sprite = particleRenderable->mParticleDatablock->getSprite(spriteCoord.col);
+                    if(sprite) {
+                        bottomLeft = Ogre::Vector2(sprite->mLeft * invSize.x, sprite->mBottom * invSize.y);
+                        texCoordSize = Ogre::Vector2(sprite->mSizeX * invSize.x, sprite->mSizeY * invSize.y);
+                    }
                 }
             }
 

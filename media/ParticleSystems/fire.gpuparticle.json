@@ -10,7 +10,7 @@
 					"rot": [1, 0, 0, 0],
 					"spriteMode": "SetWithStart",
 					"datablock": "ParticleAdditive",
-					"spriteNames": [[0, "a"], [0.15, "b"], [0.3, "c"], [0.45, "d"]],
+					"spriteTrack": [[0, [0, 0]], [0.15, [1, 0]], [0.3, [0, 1]], [0.45, [1, 1]]],
 					"emitterLifetime": 0,
 					"emissionRate": 60,
 					"burstMode": false,

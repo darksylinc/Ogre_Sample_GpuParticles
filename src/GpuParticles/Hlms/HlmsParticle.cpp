@@ -242,6 +242,20 @@ Ogre::HlmsDatablock* HlmsParticle::createDatablockImpl(Ogre::IdString datablockN
     return OGRE_NEW HlmsParticleDatablock( datablockName, this, macroblock, blendblock, paramVec );
 }
 
+HlmsParticleDatablock* HlmsParticle::cloneFromUnlitDatablock( const Ogre::HlmsUnlitDatablock* srcDatablock, const Ogre::String& name )
+{
+//    OgreProfileExhaustive( "HlmsDatablock::clone" );
+
+    Ogre::HlmsDatablock *datablock = this->createDatablock( name, name,
+                                                            Ogre::HlmsMacroblock(), Ogre::HlmsBlendblock(),
+                                                            Ogre::HlmsParamVec() );
+    HlmsParticleDatablock* particleDatablock = static_cast<HlmsParticleDatablock*>(datablock);
+
+    particleDatablock->copyFromUnlitDatablockImpl(srcDatablock);
+
+    return particleDatablock;
+}
+
 void HlmsParticle::_loadJson(const rapidjson::Value& jsonValue, const Ogre::HlmsJson::NamedBlocks& blocks, Ogre::HlmsDatablock* datablock, const Ogre::String& resourceGroup, Ogre::HlmsJsonListener* listener, const Ogre::String& additionalTextureExtension) const
 {
     Ogre::HlmsUnlit::_loadJson(jsonValue, blocks, datablock, resourceGroup, listener, additionalTextureExtension);
@@ -252,6 +266,7 @@ void HlmsParticle::_loadJson(const rapidjson::Value& jsonValue, const Ogre::Hlms
 void HlmsParticle::_saveJson(const Ogre::HlmsDatablock* datablock, Ogre::String& outString, Ogre::HlmsJsonListener* listener, const Ogre::String& additionalTextureExtension) const
 {
     Ogre::HlmsUnlit::_saveJson(datablock, outString, listener, additionalTextureExtension);
+    outString += ",";       // at the end of last unlit parameter
     HlmsJsonParticleAtlas jsonParticleAtlas( mHlmsManager, mRenderSystem->getTextureGpuManager() );
     jsonParticleAtlas.saveMaterial( datablock, outString );
 }

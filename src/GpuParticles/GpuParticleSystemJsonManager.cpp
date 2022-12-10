@@ -60,8 +60,6 @@ void GpuParticleSystemJsonManager::parseScript(Ogre::DataStreamPtr& stream,
 
 
     //    Ogre::LogManager::getSingletonPtr()->logMessage(result.infos[i].print().toStdString() + "\n");
-
-    //    compile(configRoot, groupName);
 }
 
 Ogre::Real GpuParticleSystemJsonManager::getLoadingOrder() const
@@ -178,7 +176,7 @@ void GpuParticleSystemJsonManager::loadGpuParticleEmitter(const rapidjson::Value
 //        loadTexture( subobj, blocks, i, unlitDatablock, resourceGroup );
     }
 
-    itor = json.FindMember("spriteNames");
+    itor = json.FindMember("spriteTrack");
     if (itor != json.MemberEnd() && itor->value.IsArray())
     {
         const rapidjson::Value& array = itor->value;
@@ -187,9 +185,12 @@ void GpuParticleSystemJsonManager::loadGpuParticleEmitter(const rapidjson::Value
         {
             if(array[i].IsArray() && array[i].Size() >= 2 && array[i][0].IsNumber()) {
                 float time = static_cast<float>(array[i][0].GetDouble());
-                if(array[i][1].IsString()) {
+                if(array[i][1].IsArray() && array[i][1].Size() >= 2) {
                     gpuParticleEmitter->mSpriteTimes.push_back(time);
-                    gpuParticleEmitter->mSpriteNames.push_back(array[i][1].GetString());
+                    HlmsParticleDatablock::SpriteCoord coord;
+                    coord.col = array[i][1][0].GetInt();
+                    coord.row = array[i][1][1].GetInt();
+                    gpuParticleEmitter->mSpriteFlipbookCoords.push_back(coord);
                 }
             }
         }
@@ -399,22 +400,25 @@ void GpuParticleSystemJsonManager::saveGpuParticleEmitter(const GpuParticleEmitt
 
     //
     outString += ",";
-    writeGpuEmitterVariable("spriteNames", outString);
+    writeGpuEmitterVariable("spriteTrack", outString);
     outString += "[";
-    size_t count = gpuParticleEmitter->mSpriteNames.size();
+    size_t count = gpuParticleEmitter->mSpriteFlipbookCoords.size();
     for (size_t i = 0; i < count; ++i) {
         if(i != 0) {
             outString += ", ";
         }
 
         float time = i < gpuParticleEmitter->mSpriteTimes.size() ? gpuParticleEmitter->mSpriteTimes[i] : 0.0f;
-        Ogre::String value = gpuParticleEmitter->mSpriteNames[i];
+//        Ogre::String value = gpuParticleEmitter->mSpriteNames[i];
+        const GpuParticleEmitter::SpriteCoord& coord = gpuParticleEmitter->mSpriteFlipbookCoords[i];
 
         outString += '[';
         outString += Ogre::StringConverter::toString( time );
+        outString += ", [";
+        outString += Ogre::StringConverter::toString( coord.col );
         outString += ", ";
-        outString += quote( value );
-        outString += ']';
+        outString += Ogre::StringConverter::toString( coord.row );
+        outString += "]]";
     }
     outString += "]";
     //
@@ -528,179 +532,6 @@ void GpuParticleSystemJsonManager::saveGpuParticleEmitter(const GpuParticleEmitt
         writeFloatTrack(gpuParticleEmitter->mVelocityTrack, outString);
     }
 }
-
-
-//void GpuParticleSystemJsonManager::writeEmitterCore(const ParticleEmitterCore* emitterCore, BConfig::DomGroup* emitterGroup)
-//{
-//    emitterGroup->insertString("datablock", QString::fromStdString(emitterCore->mDatablockName));
-
-//    emitterGroup->insertFloat("emissionRate", emitterCore->mEmissionRate);
-//    emitterGroup->insertFloat("emissionLifetime", emitterCore->mEmitterLifetime);
-
-//    emitterGroup->insertBool("burstMode", emitterCore->mBurstMode);
-//    emitterGroup->insertInt("burstParticles", emitterCore->mBurstParticles);
-
-//    auto writeRangeOrFloat = [&](const QString& attrName, const Geometry::Range& value)->void
-//    {
-//        if(value.getMin() == value.getMax()) {
-//            emitterGroup->insertFloat(attrName, value.getMin());
-//        }
-//        else {
-//            BConfig::DomAttribute* attr = BConfig::TypeSupport<Geometry::Range>::create(value);
-//            emitterGroup->insertAttribute(attrName, attr);
-//        }
-//    };
-
-//    writeRangeOrFloat("particleLifetime", emitterCore->mParticleLifetime);
-//    writeRangeOrFloat("size", emitterCore->mSize);
-//    writeRangeOrFloat("sizeY", emitterCore->mSizeY);
-//    writeRangeOrFloat("directionVelocity", emitterCore->mDirectionVelocity);
-//    writeRangeOrFloat("spotAngle", emitterCore->mSpotAngle);
-
-//    QString spriteModeStr;
-//    if(emitterCore->mSpriteMode == ParticleEmitterCore::SpriteMode::ChangeWithTrack) {
-//        spriteModeStr = "ChangeWithTrack";
-//    }
-//    else if(emitterCore->mSpriteMode == ParticleEmitterCore::SpriteMode::SetWithStart) {
-//        spriteModeStr = "SetWithStart";
-//    }
-
-//    emitterGroup->insertString("spriteMode", spriteModeStr);
-
-//    for (unsigned int i = 0; i < emitterCore->mSpriteNames.size(); ++i) {
-
-//        QString name = QString::fromStdString(emitterCore->mSpriteNames[i]);
-//        float time = emitterCore->mSpriteTimes[i];
-
-//        BConfig::DomGroup* spriteGroup = emitterGroup->insertGroup("sprite");
-//        spriteGroup->insertString("name", name);
-//        spriteGroup->insertFloat("time", time);
-//    }
-
-//    ValueSerializer::writeValue<Ogre::ColourValue>(emitterGroup, "colourA", emitterCore->mColourA);
-//    ValueSerializer::writeValue<Ogre::ColourValue>(emitterGroup, "colourB", emitterCore->mColourB);
-
-//    emitterGroup->insertBool("uniformSize", emitterCore->mUniformSize);
-
-////    !emitterCore->mColourTrack.empty();
-
-//    for(ParticleEmitterCore::Vector3Track::const_iterator it = emitterCore->mColourTrack.begin();
-//        it != emitterCore->mColourTrack.end(); ++it) {
-
-//        float time = it->first;
-//        Ogre::Vector3 value = it->second;
-//        Ogre::ColourValue colour(value.x, value.y, value.z);
-
-//        BConfig::DomGroup* colourGroup = emitterGroup->insertGroup("colour");
-//        colourGroup->insertFloat("time", time);
-
-//        ValueSerializer::writeValue<Ogre::ColourValue>(colourGroup, "value", colour);
-//    }
-
-//    for(ParticleEmitterCore::FloatTrack::const_iterator it = emitterCore->mAlphaTrack.begin();
-//        it != emitterCore->mAlphaTrack.end(); ++it) {
-
-//        float time = it->first;
-//        float value = it->second;
-
-//        BConfig::DomGroup* alphaGroup = emitterGroup->insertGroup("alpha");
-//        alphaGroup->insertFloat("time", time);
-//        alphaGroup->insertFloat("value", value);
-//    }
-
-//    QString faderModeStr;
-//    if(emitterCore->mFaderMode == ParticleEmitterCore::FaderMode::Enabled) {
-//        faderModeStr = "Enabled";
-//    }
-//    else if(emitterCore->mFaderMode == ParticleEmitterCore::FaderMode::AlphaOnly) {
-//        faderModeStr = "AlphaOnly";
-//    }
-//    emitterGroup->insertString("faderMode", faderModeStr);
-
-//    emitterGroup->insertFloat("particleFaderStartTime", emitterCore->mParticleFaderStartTime);
-//    emitterGroup->insertFloat("particleFaderEndTime", emitterCore->mParticleFaderEndTime);
-
-//    QString spawnShapeStr;
-//    if(emitterCore->mSpawnShape == ParticleEmitterCore::SpawnShape::Point) {
-//        spawnShapeStr = "Point";
-//    }
-//    else if(emitterCore->mSpawnShape == ParticleEmitterCore::SpawnShape::Box) {
-//        spawnShapeStr = "Box";
-//    }
-//    else if(emitterCore->mSpawnShape == ParticleEmitterCore::SpawnShape::Sphere) {
-//        spawnShapeStr = "Sphere";
-//    }
-//    else if(emitterCore->mSpawnShape == ParticleEmitterCore::SpawnShape::Disc) {
-//        spawnShapeStr = "Disc";
-//    }
-//    emitterGroup->insertString("spawnShape", spawnShapeStr);
-
-//    ValueSerializer::writeValue<Ogre::Vector3>(emitterGroup, "spawnShapeDimensions", emitterCore->mSpawnShapeDimensions);
-
-//    ValueSerializer::writeValue<Ogre::Vector3>(emitterGroup, "direction", emitterCore->mDirection);
-//    ValueSerializer::writeValue<Ogre::Vector3>(emitterGroup, "gravity", emitterCore->mGravity);
-
-//    emitterGroup->insertBool("useDepthCollision", emitterCore->mUseDepthCollision);
-
-//    for(ParticleEmitterCore::FloatTrack::const_iterator it = emitterCore->mVelocityTrack.begin();
-//        it != emitterCore->mVelocityTrack.end(); ++it) {
-
-//        float time = it->first;
-//        float value = it->second;
-
-//        BConfig::DomGroup* velocityGroup = emitterGroup->insertGroup("velocity");
-//        velocityGroup->insertFloat("time", time);
-//        velocityGroup->insertFloat("value", value);
-//    }
-
-//    for(ParticleEmitterCore::Vector2Track::const_iterator it = emitterCore->mSizeTrack.begin();
-//        it != emitterCore->mSizeTrack.end(); ++it) {
-
-//        float time = it->first;
-//        Ogre::Vector2 value = it->second;
-//        Geometry::fPoint pointValue(value.x, value.y);
-
-//        BConfig::DomGroup* sizeGroup = emitterGroup->insertGroup("size");
-//        sizeGroup->insertFloat("time", time);
-
-//        ValueSerializer::writeValue<Geometry::fPoint>(sizeGroup, "value", pointValue);
-//    }
-
-//    QString billboardTypeStr;
-//    if(emitterCore->mBillboardType == Ogre::v1::BBT_POINT) {
-//        billboardTypeStr = "Point";
-//    }
-//    else if(emitterCore->mBillboardType == Ogre::v1::BBT_ORIENTED_COMMON) {
-//        billboardTypeStr = "OrientedCommon";
-//    }
-//    else if(emitterCore->mBillboardType == Ogre::v1::BBT_ORIENTED_SELF) {
-//        billboardTypeStr = "OrientedSelf";
-//    }
-//    else if(emitterCore->mBillboardType == Ogre::v1::BBT_PERPENDICULAR_COMMON) {
-//        billboardTypeStr = "PerpendicularCommon";
-//    }
-//    else if(emitterCore->mBillboardType == Ogre::v1::BBT_PERPENDICULAR_SELF) {
-//        billboardTypeStr = "PerpendicularSelf";
-//    }
-//    emitterGroup->insertString("billboardType", billboardTypeStr);
-//}
-
-//void GpuParticleSystemJsonManager::writeGpuParticleSystem(const GpuParticleSystem* core, BConfig::DomGroup* coreGroup)
-//{
-
-//    coreGroup->insertString("name", QString::fromStdString(core->mName));
-//    for (unsigned int i = 0; i < core->mEmitters.size(); ++i) {
-//        BConfig::DomGroup* emitterGroup = coreGroup->insertGroup("emitter");
-//        const ParticleEmitterCore::EmitterCreationData& emitterData = core->mEmitters[i];
-
-//        ValueSerializer::writeValue<Ogre::Vector3>(emitterGroup, "pos", emitterData.mPos);
-//        EulerDegreeHVS euler;
-//        euler.fromQuaternion(emitterData.mRot);
-//        ValueSerializer::writeValue<EulerDegreeHVS>(emitterGroup, "rot", euler);
-
-//        writeEmitterCore(emitterData.mParticleEmitterCore, emitterGroup);
-//    }
-//}
 
 void GpuParticleSystemJsonManager::readVector3Value(const rapidjson::Value& json, Ogre::Vector3& value)
 {

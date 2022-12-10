@@ -149,10 +149,10 @@ namespace Demo
 //            emitterCore->mDatablockName = "ParticleAlphaBlend";
             emitterCore->mDatablockName = "ParticleAdditive";
             emitterCore->mSpriteMode = GpuParticleEmitter::SpriteMode::SetWithStart;
-            emitterCore->mSpriteNames.push_back("a");
-            emitterCore->mSpriteNames.push_back("b");
-            emitterCore->mSpriteNames.push_back("c");
-            emitterCore->mSpriteNames.push_back("d");
+            emitterCore->mSpriteFlipbookCoords.push_back(HlmsParticleDatablock::SpriteCoord(0, 0));
+            emitterCore->mSpriteFlipbookCoords.push_back(HlmsParticleDatablock::SpriteCoord(0, 1));
+            emitterCore->mSpriteFlipbookCoords.push_back(HlmsParticleDatablock::SpriteCoord(1, 0));
+            emitterCore->mSpriteFlipbookCoords.push_back(HlmsParticleDatablock::SpriteCoord(1, 1));
             emitterCore->mSpriteTimes.push_back(0.0f);
             emitterCore->mSpriteTimes.push_back(0.15f);
             emitterCore->mSpriteTimes.push_back(0.30f);
@@ -248,6 +248,7 @@ namespace Demo
             mGpuParticleSystemWorld->registerEmitterCore(mSparksParticleSystem);
         }
 
+        // Save particle systems to files.
         {
             Ogre::String outText;
             GpuParticleSystemJsonManager::getSingleton().saveGpuParticleSystem(mFireParticleSystem, outText);

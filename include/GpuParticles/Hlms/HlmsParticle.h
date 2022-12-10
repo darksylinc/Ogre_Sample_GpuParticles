@@ -13,6 +13,7 @@
 #include <OgreRenderQueue.h>
 
 class GpuParticleSystemWorld;
+class HlmsParticleDatablock;
 
 class HlmsParticleListener : public Ogre::HlmsListener {
 
@@ -55,6 +56,9 @@ public:
 
 class HlmsParticle : public Ogre::HlmsUnlit
 {
+public:
+    static const Ogre::HlmsTypes ParticleHlmsType = Ogre::HLMS_USER0;
+
 private:
 
     HlmsParticleListener mParticleListener;
@@ -65,7 +69,7 @@ private:
 
 public:
     HlmsParticle(Ogre::Archive* dataFolder, Ogre::ArchiveVec* libraryFolders)
-        : Ogre::HlmsUnlit(dataFolder, libraryFolders, Ogre::HLMS_USER0, "particle")
+        : Ogre::HlmsUnlit(dataFolder, libraryFolders, ParticleHlmsType, "particle")
     {
         setListener(&mParticleListener);
         mParticleListener.setHlms(this);
@@ -148,6 +152,8 @@ public:
                                                       const Ogre::HlmsMacroblock *macroblock,
                                                       const Ogre::HlmsBlendblock *blendblock,
                                                       const Ogre::HlmsParamVec &paramVec ) override;
+
+    HlmsParticleDatablock* cloneFromUnlitDatablock(const Ogre::HlmsUnlitDatablock* srcDatablock, const Ogre::String& name);
 
 #if !OGRE_NO_JSON
     /// @copydoc Hlms::_loadJson

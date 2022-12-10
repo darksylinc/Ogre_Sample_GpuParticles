@@ -22,8 +22,6 @@
 class GpuParticleSystem;
 class GpuParticleEmitter;
 
-class ParticleEmitterCore;  // TODO: delete
-
 // Forward declaration for |Document|.
 namespace rapidjson
 {
@@ -61,9 +59,6 @@ public:
 
     static void saveGpuParticleSystem( const GpuParticleSystem *gpuParticleSystem, Ogre::String &outString );
     static void saveGpuParticleEmitter( const GpuParticleEmitter *gpuParticleEmitter, Ogre::String &outString );
-
-//    void writeEmitterCore(const ParticleEmitterCore* emitter, BConfig::DomGroup* emitterGroup);
-//    void writeGpuParticleSystem(const GpuParticleSystem* core, BConfig::DomGroup* coreGroup);
 
 public:
     typedef Ogre::map<Ogre::String, Ogre::String>::type ResourceToTexExtensionMap;

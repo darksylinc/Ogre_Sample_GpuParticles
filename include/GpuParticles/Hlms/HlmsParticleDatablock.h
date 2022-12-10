@@ -16,19 +16,34 @@ class HlmsParticleDatablock : public Ogre::HlmsUnlitDatablock
 
 public:
 
+    /// Used in flipbook mode.
+    struct SpriteCoord
+    {
+        SpriteCoord()
+        {}
+
+        SpriteCoord(Ogre::uint8 _row, Ogre::uint8 _col)
+            : row(_row)
+            , col(_col)
+        {}
+
+        Ogre::uint8 row = 0;
+        Ogre::uint8 col = 0;
+    };
+
+    /// Used in atlas mode
     class Sprite
     {
     public:
+        /// Optional, just comment to identify
+        Ogre::String mName;
+
         Ogre::uint32 mLeft;
         Ogre::uint32 mBottom;
         Ogre::uint32 mSizeX;
         Ogre::uint32 mSizeY;
-
-        /// Used only if flipbook mode
-        Ogre::int32 mFlipbookX = -1;
-        Ogre::int32 mFlipbookY = -1;
     };
-    typedef std::map<Ogre::String, Sprite> SpriteMap;
+    typedef std::vector<Sprite> SpriteList;
 
 public:
     HlmsParticleDatablock(Ogre::IdString name,
@@ -37,9 +52,10 @@ public:
                           const Ogre::HlmsBlendblock *blendblock,
                           const Ogre::HlmsParamVec &params );
 
-    void addSprite(const Ogre::String& spriteName, const Sprite& sprite);
+    void addSprite(const Sprite& sprite);
     const Sprite* getSprite(const Ogre::String& spriteName) const;
-    const SpriteMap& getSprites() const;
+    const Sprite* getSprite(int index) const;
+    const SpriteList& getSprites() const;
 
     void recalculateInvTextureSize();
 
@@ -48,14 +64,19 @@ public:
     bool getIsFlipbook() const;
     void setIsFlipbook(bool isFlipbook);
 
-    void setFlipbookSize(const Ogre::uint32& flipbookSizeX, const Ogre::uint32& flipbookSizeY);
+    void setFlipbookSize(const Ogre::uint8& flipbookSizeX, const Ogre::uint8& flipbookSizeY);
+    SpriteCoord getFlipbookSize() const;
+
+    /// Called from HlmsParticle.
+    void copyFromUnlitDatablockImpl(const Ogre::HlmsUnlitDatablock* srcDatablock);
+
+    virtual void cloneImpl( Ogre::HlmsDatablock *datablock ) const override;
 
 private:
     bool mIsFlipbook;
-    Ogre::uint32 mFlipbookSizeX;
-    Ogre::uint32 mFlipbookSizeY;
+    SpriteCoord mFlipbookSize;
     Ogre::Vector2 mInvTextureSize;
-    SpriteMap mSprites;
+    SpriteList mSprites;
 };
 
 #endif

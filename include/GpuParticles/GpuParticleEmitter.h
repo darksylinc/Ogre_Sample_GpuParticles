@@ -10,6 +10,7 @@
 
 #include <OgreVector3.h>
 #include <OgreBillboardSet.h>
+#include <GpuParticles/Hlms/HlmsParticleDatablock.h>
 
 /// Recipe how to create/update particles. Is tied to one datablock.
 class GpuParticleEmitter : public Ogre::FXAlloc
@@ -50,6 +51,8 @@ public:
         /// Disc/Ring shape params: r1, r2 (radius range)
         Disc
     };
+
+    typedef HlmsParticleDatablock::SpriteCoord SpriteCoord;
 
     static const float Epsilon;
 
@@ -102,6 +105,8 @@ public:
     /// Is mEmitterLifetime == 0 ?
     inline bool isImmediate() const { return fabs(mEmitterLifetime) < Epsilon; }
 
+    GpuParticleEmitter* clone();
+
 public:
 
     /// Emitter position offset.
@@ -114,8 +119,8 @@ public:
 
     SpriteMode mSpriteMode = SpriteMode::None;
 
-    /// Optional. Used for sprite animation.
-    std::vector<Ogre::String> mSpriteNames;
+    /// For flipbook (row, col). For atlas row = 0.
+    std::vector<SpriteCoord> mSpriteFlipbookCoords;
     std::vector<float> mSpriteTimes;
     static const int MaxSprites = 8;
     static const int MaxTrackValues = 8;
