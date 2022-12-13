@@ -380,7 +380,7 @@ namespace Demo
     {
         if( arg.keysym.sym == SDLK_F4 && (arg.keysym.mod & (KMOD_LCTRL|KMOD_RCTRL)) )
         {
-            //Hot reload of Terra shaders.
+            //Hot reload of Particle shaders.
             Ogre::Root *root = mGraphicsSystem->getRoot();
             Ogre::HlmsManager *hlmsManager = root->getHlmsManager();
 

@@ -12,7 +12,6 @@ namespace Demo
 {
     class Sample_GpuParticlesGameState : public TutorialGameState
     {
-        float mTimeOfDay;
         int mEmitterInstancesCount;
         GpuParticleSystemWorld* mGpuParticleSystemWorld;
         const GpuParticleSystem* mFireParticleSystem;
