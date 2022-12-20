@@ -6,12 +6,105 @@
  */
 
 #include "GpuParticles/GpuParticleEmitter.h"
+#include <OgreStringConverter.h>
 
 const float GpuParticleEmitter::Epsilon = 0.001f;
 
 GpuParticleEmitter::GpuParticleEmitter()
 {
 
+}
+
+GpuParticleEmitter::~GpuParticleEmitter()
+{
+    for(AffectorByNameMap::const_iterator it = mAffectorByStringMap.begin(); it != mAffectorByStringMap.end(); ++it) {
+        delete it->second;
+    }
+}
+
+GpuParticleEmitter::GpuParticleEmitter(const GpuParticleEmitter& other)
+    : mPos(other.mPos)
+    , mRot(other.mRot)
+    , mDatablockName(other.mDatablockName)
+    , mSpriteMode(other.mSpriteMode)
+    , mSpriteFlipbookCoords(other.mSpriteFlipbookCoords)
+    , mSpriteTimes(other.mSpriteTimes)
+    , mEmitterLifetime(other.mEmitterLifetime)
+    , mEmissionRate(other.mEmissionRate)
+    , mBurstParticles(other.mBurstParticles)
+    , mBurstMode(other.mBurstMode)
+    , mSpawnShape(other.mSpawnShape)
+    , mSpawnShapeDimensions(other.mSpawnShapeDimensions)
+    , mFaderMode(other.mFaderMode)
+    , mParticleFaderStartTime(other.mParticleFaderStartTime)
+    , mParticleFaderEndTime(other.mParticleFaderEndTime)
+    , mUniformSize(other.mUniformSize)
+    , mBillboardType(other.mBillboardType)
+    , mColourA(other.mColourA)
+    , mColourB(other.mColourB)
+    , mSizeMin(other.mSizeMin)
+    , mSizeMax(other.mSizeMax)
+    , mSizeYMin(other.mSizeYMin)
+    , mSizeYMax(other.mSizeYMax)
+    , mParticleLifetimeMin(other.mParticleLifetimeMin)
+    , mParticleLifetimeMax(other.mParticleLifetimeMax)
+    , mDirection(other.mDirection)
+    , mSpotAngleMin(other.mSpotAngleMin)
+    , mSpotAngleMax(other.mSpotAngleMax)
+    , mDirectionVelocityMin(other.mDirectionVelocityMin)
+    , mDirectionVelocityMax(other.mDirectionVelocityMax)
+{
+    for(AffectorByNameMap::const_iterator it = other.mAffectorByStringMap.begin(); it != other.mAffectorByStringMap.end(); ++it) {
+        addAffector(it->second->clone());
+    }
+}
+
+GpuParticleEmitter& GpuParticleEmitter::operator=(const GpuParticleEmitter& other)
+{
+    mPos = other.mPos;
+    mRot = other.mRot;
+    mDatablockName = other.mDatablockName;
+    mSpriteMode = other.mSpriteMode;
+    mSpriteFlipbookCoords = other.mSpriteFlipbookCoords;
+    mSpriteTimes = other.mSpriteTimes;
+    mEmitterLifetime = other.mEmitterLifetime;
+    mEmissionRate = other.mEmissionRate;
+    mBurstParticles = other.mBurstParticles;
+    mBurstMode = other.mBurstMode;
+    mSpawnShape = other.mSpawnShape;
+    mSpawnShapeDimensions = other.mSpawnShapeDimensions;
+    mFaderMode = other.mFaderMode;
+    mParticleFaderStartTime = other.mParticleFaderStartTime;
+    mParticleFaderEndTime = other.mParticleFaderEndTime;
+    mUniformSize = other.mUniformSize;
+    mBillboardType = other.mBillboardType;
+    mColourA = other.mColourA;
+    mColourB = other.mColourB;
+    mSizeMin = other.mSizeMin;
+    mSizeMax = other.mSizeMax;
+    mSizeYMin = other.mSizeYMin;
+    mSizeYMax = other.mSizeYMax;
+    mParticleLifetimeMin = other.mParticleLifetimeMin;
+    mParticleLifetimeMax = other.mParticleLifetimeMax;
+    mDirection = other.mDirection;
+    mSpotAngleMin = other.mSpotAngleMin;
+    mSpotAngleMax = other.mSpotAngleMax;
+    mDirectionVelocityMin = other.mDirectionVelocityMin;
+    mDirectionVelocityMax = other.mDirectionVelocityMax;
+
+    // delete old affectors
+    for(AffectorByNameMap::const_iterator it = mAffectorByStringMap.begin(); it != mAffectorByStringMap.end(); ++it) {
+        delete it->second;
+    }
+    mAffectorByStringMap.clear();
+    mAffectorByIdStringMap.clear();
+
+    // add new affectors
+    for(AffectorByNameMap::const_iterator it = other.mAffectorByStringMap.begin(); it != other.mAffectorByStringMap.end(); ++it) {
+        addAffector(it->second->clone());
+    }
+
+    return *this;
 }
 
 Ogre::String GpuParticleEmitter::spriteModeToStr(GpuParticleEmitter::SpriteMode value)
@@ -146,4 +239,73 @@ bool GpuParticleEmitter::isImmediateBurst() const
 GpuParticleEmitter* GpuParticleEmitter::clone()
 {
     return OGRE_NEW GpuParticleEmitter(*this);
+}
+
+const GpuParticleAffector* GpuParticleEmitter::getAffectorNoThrow(const Ogre::String& affectorPropertyName) const
+{
+    AffectorByNameMap::const_iterator it = mAffectorByStringMap.find(affectorPropertyName);
+    if(it != mAffectorByStringMap.end()) {
+        return it->second;
+    }
+    return nullptr;
+}
+
+const GpuParticleAffector* GpuParticleEmitter::getAffectorByIdStringNoThrow(const Ogre::IdString& affectorPropertyNameHash) const
+{
+    AffectorByHashMap::const_iterator it = mAffectorByIdStringMap.find(affectorPropertyNameHash);
+    if(it != mAffectorByIdStringMap.end()) {
+        return it->second;
+    }
+    return nullptr;
+}
+
+void GpuParticleEmitter::addAffector(GpuParticleAffector* affector)
+{
+    if(getAffectorNoThrow(affector->getAffectorProperty())) {
+        OGRE_EXCEPT( Ogre::Exception::ERR_DUPLICATE_ITEM,
+                     "emitter already contains affector of such name '"
+                     + affector->getAffectorProperty() + "'.",
+                     "GpuParticleEmitter::addAffector" );
+        return;
+    }
+
+    mAffectorByStringMap[affector->getAffectorProperty()] = affector;
+    mAffectorByIdStringMap[affector->getAffectorProperty()] = affector;
+}
+
+void GpuParticleEmitter::removeAndDestroyAffector(const Ogre::String& affectorPropertyName)
+{
+    AffectorByNameMap::const_iterator itByString = mAffectorByStringMap.find(affectorPropertyName);
+    if(itByString != mAffectorByStringMap.end()) {
+        delete itByString->second;
+        mAffectorByStringMap.erase(itByString);
+    }
+    else {
+        OGRE_EXCEPT( Ogre::Exception::ERR_ITEM_NOT_FOUND,
+                     "emitter does not have affector of such name '" + affectorPropertyName + "'.",
+                     "GpuParticleEmitter::addAffector" );
+        return;
+    }
+
+    AffectorByHashMap::const_iterator itByIdString = mAffectorByIdStringMap.find(affectorPropertyName);
+    if(itByIdString != mAffectorByIdStringMap.end()) {
+//        delete itByIdString->second;
+        mAffectorByIdStringMap.erase(itByIdString);
+    }
+    else {
+        OGRE_EXCEPT( Ogre::Exception::ERR_ITEM_NOT_FOUND,
+                     "emitter does not have affector of such name '" + affectorPropertyName + "'.",
+                     "GpuParticleEmitter::addAffector" );
+        return;
+    }
+}
+
+const GpuParticleEmitter::AffectorByNameMap& GpuParticleEmitter::getAffectorByNameMap() const
+{
+    return mAffectorByStringMap;
+}
+
+const GpuParticleEmitter::AffectorByHashMap& GpuParticleEmitter::getAffectorByHashMap() const
+{
+    return mAffectorByIdStringMap;
 }

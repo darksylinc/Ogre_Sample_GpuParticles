@@ -11,6 +11,7 @@
 #include <OgreVector3.h>
 #include <OgreBillboardSet.h>
 #include <GpuParticles/Hlms/HlmsParticleDatablock.h>
+#include "GpuParticleAffector.h"
 
 /// Recipe how to create/update particles. Is tied to one datablock.
 class GpuParticleEmitter : public Ogre::FXAlloc
@@ -71,6 +72,9 @@ public:
 public:
 
     GpuParticleEmitter();
+    ~GpuParticleEmitter();
+    GpuParticleEmitter(const GpuParticleEmitter& other);
+    GpuParticleEmitter& operator=(const GpuParticleEmitter& other);
 
     float getMaxParticleLifetime() const { return mParticleLifetimeMax; }
 
@@ -166,24 +170,18 @@ public:
     float mDirectionVelocityMin = 0.0f;
     float mDirectionVelocityMax = 1.0f;
 
-    Ogre::Vector3 mGravity = Ogre::Vector3::ZERO;
-    bool mUseDepthCollision = false;
+    typedef std::map<Ogre::String, GpuParticleAffector*> AffectorByNameMap;
+    typedef std::map<Ogre::IdString, GpuParticleAffector*> AffectorByHashMap;
+    const AffectorByNameMap& getAffectorByNameMap() const;
+    const AffectorByHashMap& getAffectorByHashMap() const;
+    const GpuParticleAffector* getAffectorNoThrow(const Ogre::String& affectorPropertyName) const;
+    const GpuParticleAffector* getAffectorByIdStringNoThrow(const Ogre::IdString& affectorPropertyNameHash) const;
+    void addAffector(GpuParticleAffector* affector);
+    void removeAndDestroyAffector(const Ogre::String& affectorPropertyName);
 
-    /// Note that only first GpuParticleEmitter::MaxTrackValues will be used.
-    bool mUseColourTrack = false;
-    typedef std::map<float, Ogre::Vector3> Vector3Track;
-    Vector3Track mColourTrack;
-
-    bool mUseAlphaTrack = false;
-    typedef std::map<float, float> FloatTrack;
-    FloatTrack mAlphaTrack;
-
-    bool mUseSizeTrack = false;
-    typedef std::map<float, Ogre::Vector2> Vector2Track;
-    Vector2Track mSizeTrack;
-
-    bool mUseVelocityTrack = false;
-    FloatTrack mVelocityTrack;
+private:
+    AffectorByNameMap mAffectorByStringMap;
+    AffectorByHashMap mAffectorByIdStringMap;
 };
 
 #endif

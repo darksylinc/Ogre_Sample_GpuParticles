@@ -12,8 +12,10 @@
 #include <OgreCommon.h>
 #include "OgreIdString.h"
 #include <map>
+#include <GpuParticles/GpuParticleAffectorCommon.h>
 
 class GpuParticleSystem;
+class GpuParticleAffector;
 
 /// Class managing particle systems as resources.
 class GpuParticleSystemResourceManager
@@ -44,9 +46,11 @@ public:
     };
 
     typedef std::map<Ogre::IdString, GpuParticleSystemEntry> GpuParticleSystemMap;
+    typedef std::map<Ogre::IdString, GpuParticleAffector*> AffectorByIdStringMap;
 
 public:
     GpuParticleSystemResourceManager();
+    ~GpuParticleSystemResourceManager();
 
     GpuParticleSystem* createParticleSystem( Ogre::IdString name, const Ogre::String &refName,
                                              const Ogre::String &filename=Ogre::BLANKSTRING,
@@ -60,8 +64,16 @@ public:
     void destroyParticleSystem(Ogre::IdString gpuParticleSystemName);
     void destroyParticleSystem(const GpuParticleSystem* gpuParticleSystem);
 
+    void registerCommonAffectors();
+
+    /// Takes ownership
+    void registerAffector(GpuParticleAffector* affector);
+    const GpuParticleAffector* getAffectorByProperty(Ogre::IdString affectorProperty);
+    const AffectorByIdStringMap& getAffectorByPropertyMap() const { return mAffectorByIdStringMap; }
+
 private:
     GpuParticleSystemMap mGpuParticleSystemMap;
+    AffectorByIdStringMap mAffectorByIdStringMap;
 };
 
 #endif

@@ -13,6 +13,7 @@
 #include "OgreStringVector.h"
 #include "OgreIdString.h"
 #include "GpuParticleEmitter.h"
+#include "GpuParticleAffectorCommon.h"
 #include <OgreCommon.h>
 #include <ogrestd/map.h>
 
@@ -67,14 +68,18 @@ public:
 private:
     Ogre::StringVector mScriptPatterns;
 
+    /// Writes '\n\t\t"var": '
+    static void writeGpuEmitterVariable( const Ogre::String& var,  Ogre::String& outString);
+
+public:
     static void readVector3Value(const rapidjson::Value &json, Ogre::Vector3& value);
     static void readVector2Value(const rapidjson::Value &json, Ogre::Vector2& value);
     static void readQuaternionValue(const rapidjson::Value &json, Ogre::Quaternion& value);
     static void readColourValue(const rapidjson::Value &json, Ogre::ColourValue& value);
     static void readMinMaxFloatValue(const rapidjson::Value &json, float& valueMin, float& valueMax);
-    static void readFloatTrack(const rapidjson::Value &array, GpuParticleEmitter::FloatTrack& valueMax);
-    static void readVector2Track(const rapidjson::Value &array, GpuParticleEmitter::Vector2Track& valueMax);
-    static void readVector3Track(const rapidjson::Value &array, GpuParticleEmitter::Vector3Track& valueMax);
+    static void readFloatTrack(const rapidjson::Value &array, GpuParticleAffectorCommon::FloatTrack& valueMax);
+    static void readVector2Track(const rapidjson::Value &array, GpuParticleAffectorCommon::Vector2Track& valueMax);
+    static void readVector3Track(const rapidjson::Value &array, GpuParticleAffectorCommon::Vector3Track& valueMax);
 
     static void toStr( const Ogre::ColourValue &value, Ogre::String &outString );
     static void toStr( const Ogre::Vector2 &value, Ogre::String &outString );
@@ -84,13 +89,13 @@ private:
     static void toStr( const bool &value, Ogre::String &outString );
     static void toStrMinMax( float valueMin, float valueMax, Ogre::String &outString );
 
-    /// Writes '\n\t\t"var": '
-    static void writeGpuEmitterVariable( const Ogre::String& var,  Ogre::String& outString);
+    /// writeGpuAffectorVariable differs from writeGpuEmitterVariable with number indentations ('\t')
+    static void writeGpuAffectorVariable( const Ogre::String& var,  Ogre::String& outString);
     static Ogre::String quote( const Ogre::String& value );
 
-    static void writeFloatTrack(const GpuParticleEmitter::FloatTrack& valueTrack, Ogre::String& outString);
-    static void writeVector2Track(const GpuParticleEmitter::Vector2Track& valueTrack, Ogre::String& outString);
-    static void writeVector3Track(const GpuParticleEmitter::Vector3Track& valueTrack, Ogre::String& outString);
+    static void writeFloatTrack(const GpuParticleAffectorCommon::FloatTrack& valueTrack, Ogre::String& outString);
+    static void writeVector2Track(const GpuParticleAffectorCommon::Vector2Track& valueTrack, Ogre::String& outString);
+    static void writeVector3Track(const GpuParticleAffectorCommon::Vector3Track& valueTrack, Ogre::String& outString);
 };
 
 #endif

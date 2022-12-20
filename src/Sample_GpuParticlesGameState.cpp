@@ -40,6 +40,10 @@
 #include <iostream>
 #include <fstream>
 
+#include <GpuParticles/Affectors/GpuParticleDepthCollisionAffector.h>
+#include <GpuParticles/Affectors/GpuParticleGlobalGravityAffector.h>
+#include <GpuParticles/Affectors/GpuParticleSetColourTrackAffector.h>
+
 using namespace Demo;
 
 namespace Demo
@@ -89,6 +93,15 @@ namespace Demo
             HlmsParticle* hlmsParticle = static_cast<HlmsParticle*>( hlmsManager->getHlms(Ogre::HLMS_USER0) );
             HlmsParticleListener* hlmsParticleListener = hlmsParticle->getParticleListener();
 
+            std::vector<GpuParticleAffector*> affectors;
+            GpuParticleSystemResourceManager& gpuParticleSystemResourceManager = GpuParticleSystemResourceManager::getSingleton();
+            const GpuParticleSystemResourceManager::AffectorByIdStringMap& registeredAffectors = gpuParticleSystemResourceManager.getAffectorByPropertyMap();
+            for(GpuParticleSystemResourceManager::AffectorByIdStringMap::const_iterator it = registeredAffectors.begin();
+                it != registeredAffectors.end(); ++it) {
+
+                 affectors.push_back(it->second->clone());
+            }
+
             bool useDepthTexture = true;
 
             // Compositor is needed only in case of useDepthTexture == true.
@@ -98,7 +111,7 @@ namespace Demo
             mGpuParticleSystemWorld = OGRE_NEW GpuParticleSystemWorld(
                         Ogre::Id::generateNewId<Ogre::MovableObject>(),
                         &sceneManager->_getEntityMemoryManager( Ogre::SCENE_DYNAMIC ),
-                        sceneManager, 15, hlmsParticleListener,
+                        sceneManager, 15, hlmsParticleListener, affectors,
                         useDepthTexture, mGraphicsSystem->getCompositorWorkspace(), depthTextureCompositorNode, depthTextureId);
 
     //        mGpuParticleSystemWorld->init(4096, 64, 256, 64, 64);
@@ -174,29 +187,35 @@ namespace Demo
             emitterCore->mSpotAngleMin = 0.0f;
             emitterCore->mSpotAngleMax = (float)M_PI/36.0f;
 
-            emitterCore->mUseColourTrack = true;
-//            emitterCore->mColourTrack.insert(std::make_pair(0.0f, Ogre::Vector3(1.000f, 1.000f, 1.000f)));
-//            emitterCore->mColourTrack.insert(std::make_pair(1.0f, Ogre::Vector3(1.000f, 1.000f, 1.000f)));
+            {
+                GpuParticleSetColourTrackAffector* setColourTrackAffector = OGRE_NEW GpuParticleSetColourTrackAffector();
+                setColourTrackAffector->mEnabled = true;
 
-//            emitterCore->mColourTrack.insert(std::make_pair(0.0f, Ogre::Vector3(1.000f, 0.878f, 0.000f)));
-//            emitterCore->mColourTrack.insert(std::make_pair(0.3f, Ogre::Vector3(1.000f, 0.486f, 0.000f)));
-//// //            emitterCore->mColourTrack.insert(std::make_pair(0.3f, Ogre::Vector3(1.000f, 0.486f, 0.184f)));
-//            emitterCore->mColourTrack.insert(std::make_pair(1.0f, Ogre::Vector3(0.192f, 0.020f, 0.000f)));
+    //            setColourTrackAffector->mColourTrack.insert(std::make_pair(0.0f, Ogre::Vector3(1.000f, 1.000f, 1.000f)));
+    //            setColourTrackAffector->mColourTrack.insert(std::make_pair(1.0f, Ogre::Vector3(1.000f, 1.000f, 1.000f)));
 
-            emitterCore->mColourTrack.insert(std::make_pair(0.0f, Ogre::Vector3(0.750f, 0.659f, 0.000f)));
-//            emitterCore->mColourTrack.insert(std::make_pair(0.3f, Ogre::Vector3(0.750f, 0.365f, 0.184f)));
-            emitterCore->mColourTrack.insert(std::make_pair(0.2f, Ogre::Vector3(0.750f, 0.365f, 0.000f)));
-            emitterCore->mColourTrack.insert(std::make_pair(0.7f, Ogre::Vector3(0.144f, 0.015f, 0.000f)));
+    //            setColourTrackAffector->mColourTrack.insert(std::make_pair(0.0f, Ogre::Vector3(1.000f, 0.878f, 0.000f)));
+    //            setColourTrackAffector->mColourTrack.insert(std::make_pair(0.3f, Ogre::Vector3(1.000f, 0.486f, 0.000f)));
+    //// //            setColourTrackAffector->mColourTrack.insert(std::make_pair(0.3f, Ogre::Vector3(1.000f, 0.486f, 0.184f)));
+    //            setColourTrackAffector->mColourTrack.insert(std::make_pair(1.0f, Ogre::Vector3(0.192f, 0.020f, 0.000f)));
 
-//            emitterCore->mColourTrack.insert(std::make_pair(0.0f, Ogre::Vector3(0.0f, 0.0f, 0.0f)));
-//            emitterCore->mColourTrack.insert(std::make_pair(1.0f, Ogre::Vector3(1.0f, 0.0f, 0.0f)));
-//            emitterCore->mColourTrack.insert(std::make_pair(2.0f, Ogre::Vector3(1.0f, 1.0f, 0.0f)));
-//            emitterCore->mColourTrack.insert(std::make_pair(3.0f, Ogre::Vector3(0.0f, 1.0f, 0.0f)));
-//            emitterCore->mColourTrack.insert(std::make_pair(4.0f, Ogre::Vector3(0.0f, 1.0f, 1.0f)));
-//            emitterCore->mColourTrack.insert(std::make_pair(5.0f, Ogre::Vector3(0.0f, 0.0f, 1.0f)));
-//            emitterCore->mColourTrack.insert(std::make_pair(6.0f, Ogre::Vector3(1.0f, 0.0f, 1.0f)));
-//            emitterCore->mColourTrack.insert(std::make_pair(7.0f, Ogre::Vector3(1.0f, 1.0f, 1.0f)));
-//            emitterCore->mColourTrack.insert(std::make_pair(8.0f, Ogre::Vector3(1.0f, 0.0f, 0.0f)));
+                setColourTrackAffector->mColourTrack.insert(std::make_pair(0.0f, Ogre::Vector3(0.750f, 0.659f, 0.000f)));
+    //            setColourTrackAffector->mColourTrack.insert(std::make_pair(0.3f, Ogre::Vector3(0.750f, 0.365f, 0.184f)));
+                setColourTrackAffector->mColourTrack.insert(std::make_pair(0.2f, Ogre::Vector3(0.750f, 0.365f, 0.000f)));
+                setColourTrackAffector->mColourTrack.insert(std::make_pair(0.7f, Ogre::Vector3(0.144f, 0.015f, 0.000f)));
+
+    //            setColourTrackAffector->mColourTrack.insert(std::make_pair(0.0f, Ogre::Vector3(0.0f, 0.0f, 0.0f)));
+    //            setColourTrackAffector->mColourTrack.insert(std::make_pair(1.0f, Ogre::Vector3(1.0f, 0.0f, 0.0f)));
+    //            setColourTrackAffector->mColourTrack.insert(std::make_pair(2.0f, Ogre::Vector3(1.0f, 1.0f, 0.0f)));
+    //            setColourTrackAffector->mColourTrack.insert(std::make_pair(3.0f, Ogre::Vector3(0.0f, 1.0f, 0.0f)));
+    //            setColourTrackAffector->mColourTrack.insert(std::make_pair(4.0f, Ogre::Vector3(0.0f, 1.0f, 1.0f)));
+    //            setColourTrackAffector->mColourTrack.insert(std::make_pair(5.0f, Ogre::Vector3(0.0f, 0.0f, 1.0f)));
+    //            setColourTrackAffector->mColourTrack.insert(std::make_pair(6.0f, Ogre::Vector3(1.0f, 0.0f, 1.0f)));
+    //            setColourTrackAffector->mColourTrack.insert(std::make_pair(7.0f, Ogre::Vector3(1.0f, 1.0f, 1.0f)));
+    //            setColourTrackAffector->mColourTrack.insert(std::make_pair(8.0f, Ogre::Vector3(1.0f, 0.0f, 0.0f)));
+
+                emitterCore->addAffector(setColourTrackAffector);
+            }
 
 
             emitterCore->mFaderMode = GpuParticleEmitter::FaderMode::Enabled;
@@ -230,8 +249,14 @@ namespace Demo
             emitterCore->mSpotAngleMax = (float)M_PI/6.0f;
             emitterCore->mUniformSize = false;
             emitterCore->mBillboardType = Ogre::v1::BBT_ORIENTED_SELF;
-            emitterCore->mUseDepthCollision = true;
-            emitterCore->mGravity = Ogre::Vector3(0.0f, -1.0f, 0.0f);
+
+            GpuParticleDepthCollisionAffector* depthCollisionAffector = OGRE_NEW GpuParticleDepthCollisionAffector();
+            depthCollisionAffector->mEnabled = true;
+            emitterCore->addAffector(depthCollisionAffector);
+
+            GpuParticleGlobalGravityAffector* globalGravityAffector = OGRE_NEW GpuParticleGlobalGravityAffector();
+            globalGravityAffector->mGravity = Ogre::Vector3(0.0f, -1.0f, 0.0f);
+            emitterCore->addAffector(globalGravityAffector);
 
             mSparksManualParticleSystem->addEmitter(emitterCore);
         }
@@ -248,46 +273,46 @@ namespace Demo
             mGpuParticleSystemWorld->registerEmitterCore(mSparksParticleSystem);
         }
 
-        // Save particle systems to files.
-        {
-            Ogre::String outText;
-            GpuParticleSystemJsonManager::getSingleton().saveGpuParticleSystem(mFireParticleSystem, outText);
+//        // Save particle systems to files.
+//        {
+//            Ogre::String outText;
+//            GpuParticleSystemJsonManager::getSingleton().saveGpuParticleSystem(mFireParticleSystem, outText);
 
-            std::ofstream myfile;
-            myfile.open("fire.gpuparticle.json");
-            myfile << outText.c_str();
-            myfile.close();
-        }
+//            std::ofstream myfile;
+//            myfile.open("fire.gpuparticle.json");
+//            myfile << outText.c_str();
+//            myfile.close();
+//        }
 
-        {
-            Ogre::String outText;
-            GpuParticleSystemJsonManager::getSingleton().saveGpuParticleSystem(mSparksParticleSystem, outText);
+//        {
+//            Ogre::String outText;
+//            GpuParticleSystemJsonManager::getSingleton().saveGpuParticleSystem(mSparksParticleSystem, outText);
 
-            std::ofstream myfile;
-            myfile.open("sparks.gpuparticle.json");
-            myfile << outText.c_str();
-            myfile.close();
-        }
+//            std::ofstream myfile;
+//            myfile.open("sparks.gpuparticle.json");
+//            myfile << outText.c_str();
+//            myfile.close();
+//        }
 
-        {
-            Ogre::String outText;
-            GpuParticleSystemJsonManager::getSingleton().saveGpuParticleSystem(mFireManualParticleSystem, outText);
+//        {
+//            Ogre::String outText;
+//            GpuParticleSystemJsonManager::getSingleton().saveGpuParticleSystem(mFireManualParticleSystem, outText);
 
-            std::ofstream myfile;
-            myfile.open("fire_manual.gpuparticle.json");
-            myfile << outText.c_str();
-            myfile.close();
-        }
+//            std::ofstream myfile;
+//            myfile.open("fire_manual.gpuparticle.json");
+//            myfile << outText.c_str();
+//            myfile.close();
+//        }
 
-        {
-            Ogre::String outText;
-            GpuParticleSystemJsonManager::getSingleton().saveGpuParticleSystem(mSparksManualParticleSystem, outText);
+//        {
+//            Ogre::String outText;
+//            GpuParticleSystemJsonManager::getSingleton().saveGpuParticleSystem(mSparksManualParticleSystem, outText);
 
-            std::ofstream myfile;
-            myfile.open("sparks_manual.gpuparticle.json");
-            myfile << outText.c_str();
-            myfile.close();
-        }
+//            std::ofstream myfile;
+//            myfile.open("sparks_manual.gpuparticle.json");
+//            myfile << outText.c_str();
+//            myfile.close();
+//        }
     }
 
     //-----------------------------------------------------------------------------------

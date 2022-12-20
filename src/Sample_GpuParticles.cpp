@@ -42,6 +42,7 @@ namespace Demo
         virtual void setupResources(void)
         {
             GpuParticleSystemResourceManager* gpuParticleSystemResourceManager = new GpuParticleSystemResourceManager();
+            gpuParticleSystemResourceManager->registerCommonAffectors();
             GpuParticleSystemJsonManager* gpuParticleSystemJsonManager = new GpuParticleSystemJsonManager();
 
             GraphicsSystem::setupResources();
