@@ -327,7 +327,7 @@ namespace Demo
     void Sample_GpuParticlesGameState::recreateEmitterInstances()
     {
         mFireParticleInstances.clear();
-        mGpuParticleSystemWorld->stopAll();
+        mGpuParticleSystemWorld->stopAndRemoveAllImmediately();
 
         int sizeX = 1;
         int sizeZ = 1;

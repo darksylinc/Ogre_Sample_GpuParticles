@@ -24,46 +24,15 @@
 #include <OgreCompositorNode.h>
 #include <OgreCompositorWorkspace.h>
 #include <OgreImage2.h>
-#include <OgreSceneManager.h>
 
 #include <OgreLogManager.h>
 
 #include <GpuParticles/GpuParticleAffectorCommon.h>
 
-//#include <Other/DebugVariable.h>
-
 #include <GpuParticles/Hlms/HlmsParticle.h>
 #include <GpuParticles/Hlms/HlmsParticleDatablock.h>
 
 using namespace Ogre;
-
-namespace
-{
-//    struct ParticleData
-//    {
-//        /// Position
-//        float px, py, pz;
-
-//        /// Rotate xz
-//        float r;
-
-//        /// Colour
-//        float cr, cg, cb, ca;
-
-//        /// Size
-//        float sx, sy;
-
-//        /// Sprite percentage: ceil is taken as result and is casted to uint
-//        /// (it is easier to interpolate that way).
-//        float spritePercent;
-
-//        float lifetime;
-//        float maxLifetime;
-
-//        float dirX, dirY, dirZ;
-//        float dirVelocity;
-//    };
-}
 
 /// Like thread group data, but with BucketSize.
 struct GpuParticleSystemWorld::BucketGroupData
@@ -93,7 +62,17 @@ struct GpuParticleSystemWorld::BucketGroupData
     Ogre::uint32 nextBucketParticleIndex = 0;
 };
 
-const int GpuParticleSystemWorld::ParticleDataStructSize = sizeof(float) * 17u; // count number of floats inside 'ParticleData' struct
+const int GpuParticleSystemWorld::ParticleDataStructSize =
+        sizeof(float) * 3u +  // Position x, y, z
+        sizeof(float) +       // Rotate sprite
+        sizeof(float) * 4u +  // Colour r, g, b, a
+        sizeof(float) * 2u +  // Size x, y;
+        sizeof(float) +       // Sprite percentage: ceil is taken as result and is casted to uint
+                              // (it is easier to interpolate that way).
+        sizeof(float) +       // lifetime;
+        sizeof(float) +       // maxLifetime;
+        sizeof(float) * 3u +  // direction x, y, z
+        sizeof(float);        // float dirVelocity;
 
 const int GpuParticleSystemWorld::EntryBucketDataStructSize = sizeof(Ogre::uint32) * 5u;
 
@@ -241,6 +220,9 @@ GpuParticleSystemWorld::~GpuParticleSystemWorld()
         delete mParticleRenderables[i];
     }
     mParticleRenderables.clear();
+
+    destroyAllEmitterInstances();
+
     destroyBuffers();
 
     for (size_t i = 0; i < mRegisteredAffectorList.size(); ++i) {
@@ -402,21 +384,62 @@ bool GpuParticleSystemWorld::canAdd(const GpuParticleSystem* particleSystem) con
     return true;
 }
 
-void GpuParticleSystemWorld::stop(uint64 instanceId, bool destroyAllParticles)
+void GpuParticleSystemWorld::stop(uint64 instanceId, bool removeEmitterWhenFinished, bool destroyAllParticlesImmediately)
 {
-    for (int i = mEmitterInstances.size()-1; i >= 0; --i) {
-        if(mEmitterInstances[i].mId == instanceId) {
-            stopEmitter(i, destroyAllParticles);
+    std::pair<EmitterInstanceIdToListIndex::iterator, EmitterInstanceIdToListIndex::iterator> idItRange
+            = mEmitterInstanceIdToListIndex.equal_range(instanceId);
+
+    std::vector<int> indexesToRemove;
+    for(EmitterInstanceIdToListIndex::iterator it = idItRange.first; it != idItRange.second; ++it) {
+        indexesToRemove.push_back(it->second);
+    }
+
+    for (size_t i = 0; i < indexesToRemove.size(); ++i) {
+        size_t instanceListIndex = indexesToRemove[i];
+        EmitterInstance& emitterInstance = mEmitterInstances[instanceListIndex];
+        emitterInstance.mRun = false;
+
+        if(removeEmitterWhenFinished || emitterInstance.mRemoveWhenFinished) {
+            emitterInstance.mRemoveWhenFinished = true;
+            int particleCount = emitterInstance.mParticleCount + emitterInstance.mParticleAddedThisFrameCount;
+            if(destroyAllParticlesImmediately || particleCount == 0 || emitterInstance.mIgnore) {
+                destroyEmitterInstance(instanceListIndex);
+            }
+            else {
+                freeUnusedBuckets(emitterInstance);
+            }
         }
+        else {
+            if(destroyAllParticlesImmediately) {
+                emitterInstance.restartEmitter(false);
+            }
+        }
+
     }
 }
 
-void GpuParticleSystemWorld::stopAll()
+void GpuParticleSystemWorld::stopAndRemoveAllImmediately()
 {
-    for (int i = mEmitterInstances.size()-1; i >= 0; --i) {
+    for (size_t i = 0; i < mEmitterInstances.size(); ++i) {
         freeBuckets(mEmitterInstances[i]);
     }
-    mEmitterInstances.clear();
+
+    destroyAllEmitterInstances();
+}
+
+void GpuParticleSystemWorld::restart(uint64 instanceId)
+{
+    std::pair<EmitterInstanceIdToListIndex::iterator, EmitterInstanceIdToListIndex::iterator> idItRange
+            = mEmitterInstanceIdToListIndex.equal_range(instanceId);
+    for(EmitterInstanceIdToListIndex::iterator it = idItRange.first; it != idItRange.second; ++it) {
+
+        EmitterInstance& emitterInstance = mEmitterInstances[it->second];
+        if(emitterInstance.mRemoveWhenFinished) {
+            continue;
+        }
+
+        emitterInstance.restartEmitter(true);
+    }
 }
 
 void GpuParticleSystemWorld::init(uint32 maxParticles,
@@ -486,11 +509,17 @@ void GpuParticleSystemWorld::init(uint32 maxParticles,
 void GpuParticleSystemWorld::createEmitterInstance(const GpuParticleEmitter* gpuParticleEmitterCore,
                                                    const Ogre::Matrix4& matParent,
                                                    Ogre::Node* parentNode,
-                                                   Ogre::uint64 idCounter)
+                                                   Ogre::uint64 idCounter,
+                                                   bool burstAutoRemove,
+                                                   EmitterInstanceRemoveListener* emitterInstanceRemoveListener)
 {
     mEmitterInstances.push_back(EmitterInstance());
     EmitterInstance& emitter = mEmitterInstances[mEmitterInstances.size()-1];
     emitter.mGpuParticleEmitter = gpuParticleEmitterCore;
+    if(gpuParticleEmitterCore->mBurstMode && burstAutoRemove) {
+        emitter.mRemoveWhenFinished = true;
+    }
+    emitter.mEmitterInstanceRemoveListener = emitterInstanceRemoveListener;
 
     Ogre::Matrix4 matOffset;
     matOffset.makeTransform(gpuParticleEmitterCore->mPos, Ogre::Vector3::UNIT_SCALE, gpuParticleEmitterCore->mRot);
@@ -521,9 +550,63 @@ void GpuParticleSystemWorld::createEmitterInstance(const GpuParticleEmitter* gpu
     }
 
     emitter.mId = idCounter;
+
+    mEmitterInstanceIdToListIndex.insert(std::make_pair(emitter.mId, mEmitterInstances.size()-1));
 }
 
-Ogre::uint64 GpuParticleSystemWorld::start(const GpuParticleEmitter* emitterCore, Ogre::Node* parentNode, const Ogre::Vector3& parentPos, const Ogre::Quaternion& parentRot)
+void GpuParticleSystemWorld::destroyEmitterInstance(int instanceIndex)
+{
+    freeBuckets(mEmitterInstances[instanceIndex]);
+
+    EmitterInstanceIdToListIndex::iterator itToRemove = findEmitterInstanceIt(instanceIndex);
+    EmitterInstanceIdToListIndex::iterator itToSwap = findEmitterInstanceIt(mEmitterInstances.size()-1);
+    int count = mEmitterInstanceIdToListIndex.count(mEmitterInstances[instanceIndex].mId);
+    bool isLastEmitterOfSystem = (count == 1);
+
+    mEmitterInstances[instanceIndex].onRemove(isLastEmitterOfSystem);
+    mEmitterInstances[instanceIndex] = mEmitterInstances[mEmitterInstances.size()-1];
+    mEmitterInstances.pop_back();
+
+    // Let itToSwap points to listIndex which was pointed by itToRemove.
+    // First set value, then erase itToRemove.
+    // If itToSwap == itToRemove nothing wrong happen.
+    itToSwap->second = itToRemove->second;
+    mEmitterInstanceIdToListIndex.erase(itToRemove);
+}
+
+void GpuParticleSystemWorld::destroyAllEmitterInstances()
+{
+    std::map<Ogre::uint64, int> counter;
+
+    for (size_t i = 0; i < mEmitterInstances.size(); ++i) {
+        Ogre::uint64 id = mEmitterInstances[i].mId;
+        std::map<Ogre::uint64, int>::iterator itFind = counter.find(id);
+        if(itFind == counter.end()) {
+            counter[id] = 1;
+        }
+        else {
+            ++(itFind->second);
+        }
+    }
+
+    for (size_t i = 0; i < mEmitterInstances.size(); ++i) {
+        Ogre::uint64 id = mEmitterInstances[i].mId;
+        int& systemEmitterInstancesCount = counter[id];
+        bool isLastEmitterInSystem = (systemEmitterInstancesCount == 1);
+        mEmitterInstances[i].onRemove(isLastEmitterInSystem);
+        --systemEmitterInstancesCount;
+    }
+
+    mEmitterInstances.clear();
+    mEmitterInstanceIdToListIndex.clear();
+}
+
+Ogre::uint64 GpuParticleSystemWorld::start(const GpuParticleEmitter* emitterCore,
+                                           Ogre::Node* parentNode,
+                                           const Ogre::Vector3& parentPos,
+                                           const Ogre::Quaternion& parentRot,
+                                           bool burstAutoDelete,
+                                           EmitterInstanceRemoveListener* emitterInstanceRemoveListener)
 {
     if(mRegisteredEmitterCoresSet.find(emitterCore) == mRegisteredEmitterCoresSet.end()) {
         OGRE_EXCEPT( Exception::ERR_INVALIDPARAMS,
@@ -549,12 +632,17 @@ Ogre::uint64 GpuParticleSystemWorld::start(const GpuParticleEmitter* emitterCore
     Ogre::Matrix4 matParent;
     matParent.makeTransform(parentPos, Ogre::Vector3::UNIT_SCALE, parentRot);
 
-    createEmitterInstance(emitterCore, matParent, parentNode, idCounter);
+    createEmitterInstance(emitterCore, matParent, parentNode, idCounter, burstAutoDelete, emitterInstanceRemoveListener);
 
     return idCounter;
 }
 
-uint64 GpuParticleSystemWorld::start(const std::vector<GpuParticleEmitter*>& emitters, Node* parentNode, const Ogre::Vector3& parentPos, const Ogre::Quaternion& parentRot)
+uint64 GpuParticleSystemWorld::start(const std::vector<GpuParticleEmitter*>& emitters,
+                                     Node* parentNode,
+                                     const Ogre::Vector3& parentPos,
+                                     const Ogre::Quaternion& parentRot,
+                                     bool burstAutoDelete,
+                                     EmitterInstanceRemoveListener* emitterInstanceRemoveListener)
 {
     Ogre::uint32 requiredBuckets = 0;
     for (size_t i = 0; i < emitters.size(); ++i) {
@@ -587,37 +675,30 @@ uint64 GpuParticleSystemWorld::start(const std::vector<GpuParticleEmitter*>& emi
 
     for (size_t i = 0; i < emitters.size(); ++i) {
         const GpuParticleEmitter* gpuParticleEmitterCore = emitters[i];
-        createEmitterInstance(gpuParticleEmitterCore, matParent, parentNode, idCounter);
+        createEmitterInstance(gpuParticleEmitterCore, matParent, parentNode, idCounter, burstAutoDelete, emitterInstanceRemoveListener);
     }
 
     return idCounter;
 }
 
-uint64 GpuParticleSystemWorld::start(const GpuParticleSystem* particleSystem, Node* parentNode, const Vector3& parentPos, const Quaternion& parentRot)
+uint64 GpuParticleSystemWorld::start(const GpuParticleSystem* particleSystem,
+                                     Node* parentNode,
+                                     const Vector3& parentPos,
+                                     const Quaternion& parentRot,
+                                     bool burstAutoDelete,
+                                     EmitterInstanceRemoveListener* emitterInstanceRemoveListener)
 {
-    return start(particleSystem->getEmitters(), parentNode, parentPos, parentRot);
-}
-
-void GpuParticleSystemWorld::stopEmitter(int instanceIndex, bool destroyAllParticles)
-{
-    if(instanceIndex < 0 || (uint32)instanceIndex >= mEmitterInstances.size()) {
-        return;
-    }
-
-    mEmitterInstances[instanceIndex].mRun = false;
-    if(destroyAllParticles || mEmitterInstances[instanceIndex].mParticleCount + mEmitterInstances[instanceIndex].mParticleAddedThisFrameCount == 0) {
-        freeBuckets(mEmitterInstances[instanceIndex]);
-        mEmitterInstances.erase(mEmitterInstances.begin()+instanceIndex);
-    }
-    else {
-        freeUnusedBuckets(mEmitterInstances[instanceIndex]);
-    }
+    return start(particleSystem->getEmitters(), parentNode, parentPos, parentRot, burstAutoDelete, emitterInstanceRemoveListener);
 }
 
 void GpuParticleSystemWorld::updateInstances(float elapsedTime)
 {
     for (int i = 0; i < (int)mEmitterInstances.size(); ++i) {
         EmitterInstance& emitterInstance = mEmitterInstances[i];
+        if(emitterInstance.mIgnore) {
+            continue;
+        }
+
         const GpuParticleEmitter* emitterCore = emitterInstance.mGpuParticleEmitter;
         //        float oldTimeSinceStarted = emitterInstance.mTimeSinceStarted;
 
@@ -628,16 +709,16 @@ void GpuParticleSystemWorld::updateInstances(float elapsedTime)
         if(!emitterInstance.mRun) {
             emitterInstance.mTimeSinceStopped += elapsedTime;
 
-            // check if emitter stopped long enough time
-            if(emitterInstance.mTimeSinceStopped >= emitterCore->getMaxParticleLifetime() || emitterInstance.mParticleCount == 0) {
-                // remove
-                freeBuckets(emitterInstance);
-                mEmitterInstances.erase(mEmitterInstances.begin()+i);
-                --i;
-                continue;
-            }
+            if(emitterInstance.mRemoveWhenFinished) {
+                // check if emitter stopped long enough time
+                if(emitterInstance.mTimeSinceStopped >= emitterCore->getMaxParticleLifetime() || emitterInstance.mParticleCount == 0) {
+                    destroyEmitterInstance(i);
+                    --i;
+                    continue;
+                }
 
-            freeUnusedBuckets(mEmitterInstances[i]);
+                freeUnusedBuckets(mEmitterInstances[i]);
+            }
         }
 
         float maxParticleLifetime = emitterCore->getMaxParticleLifetime();
@@ -772,24 +853,76 @@ void GpuParticleSystemWorld::processTime(float elapsedTime)
     // create particles
     emitParticleCreateGpu();
 
-    // update particles
     Ogre::uint32 entriesCount = 0;
+    prepareEntriesForUpdateAndRender(entriesCount);
+
+    // update particles
     emitParticleUpdateGpu(entriesCount);
 
-    // TODO: bucket culling
-    if(entriesCount != 0)
-    {
-        // Bucket culling: clear result buffer. It is important to do this in
-        // separate job before checking culling.
+//    // Bucket culling (?)
+//    if(entriesCount != 0)
+//    {
+//        // Bucket culling: clear result buffer. It is important to do this in
+//        // separate job before checking culling.
 
 
 
-        //  Bucket culling: ComputeJob to check if particle is in camera view (treat particle as sphere),
-        //  and with InterlockedAdd count how many particles in bucket is visible.
-        //  One is enough to show bucket (maybe InterlockedAdd is not necessary, only setting to 1).
+//        //  Bucket culling: ComputeJob to check if particle is in camera view (treat particle as sphere),
+//        //  and with InterlockedAdd count how many particles in bucket is visible.
+//        //  One is enough to show bucket (maybe InterlockedAdd is not necessary, only setting to 1).
+//    }
+}
+
+void GpuParticleSystemWorld::setIgnoreEmitterInstance(uint64 instanceId, bool ignore)
+{
+    std::pair<EmitterInstanceIdToListIndex::iterator, EmitterInstanceIdToListIndex::iterator> idItRange
+            = mEmitterInstanceIdToListIndex.equal_range(instanceId);
+    for(EmitterInstanceIdToListIndex::iterator it = idItRange.first; it != idItRange.second; ++it) {
+        int emitterListIndex = it->second;
+        EmitterInstance& emitterInstance = mEmitterInstances[emitterListIndex];
+        emitterInstance.mIgnore = ignore;
+    }
+}
+
+bool GpuParticleSystemWorld::getIgnoreEmitterInstance(uint64 instanceId) const
+{
+    // If one emitter is ignored, all from the same instanceId should be ignored as well.
+
+    EmitterInstanceIdToListIndex::const_iterator it = mEmitterInstanceIdToListIndex.find(instanceId);
+    if(it == mEmitterInstanceIdToListIndex.end()) {
+        // wrong situation.
+        return true;
     }
 
-    prepareForRender();
+    return mEmitterInstances[it->second].mIgnore;
+}
+
+bool GpuParticleSystemWorld::isRunning(uint64 instanceId) const
+{
+    // Finished when all emitter instances with such id are finished.
+    bool running = false;
+    std::pair<EmitterInstanceIdToListIndex::const_iterator, EmitterInstanceIdToListIndex::const_iterator> idItRange
+            = mEmitterInstanceIdToListIndex.equal_range(instanceId);
+    for(EmitterInstanceIdToListIndex::const_iterator it = idItRange.first; it != idItRange.second; ++it) {
+        int emitterListIndex = it->second;
+        const EmitterInstance& emitterInstance = mEmitterInstances[emitterListIndex];
+        running = running || emitterInstance.mRun;
+    }
+    return running;
+}
+
+bool GpuParticleSystemWorld::isFinished(uint64 instanceId) const
+{
+    // Finished when all emitter instances with such id are finished.
+    bool finished = true;
+    std::pair<EmitterInstanceIdToListIndex::const_iterator, EmitterInstanceIdToListIndex::const_iterator> idItRange
+            = mEmitterInstanceIdToListIndex.equal_range(instanceId);
+    for(EmitterInstanceIdToListIndex::const_iterator it = idItRange.first; it != idItRange.second; ++it) {
+        int emitterListIndex = it->second;
+        const EmitterInstance& emitterInstance = mEmitterInstances[emitterListIndex];
+        finished = finished && emitterInstance.isFinished();
+    }
+    return finished;
 }
 
 Ogre::ReadOnlyBufferPacked* GpuParticleSystemWorld::getParticleBufferAsReadOnly() const
@@ -1476,7 +1609,8 @@ void GpuParticleSystemWorld::emitParticleCreateGpu()
             EmitterInstance& emitterInstance = mEmitterInstances[i];
 
             if(emitterInstance.mParticleAddedThisFrameCount == 0 ||
-                    emitterInstance.mParticleCreatedCount >= emitterInstance.mParticleCount+emitterInstance.mParticleAddedThisFrameCount) {
+                    emitterInstance.mParticleCreatedCount >= emitterInstance.mParticleCount+emitterInstance.mParticleAddedThisFrameCount ||
+                    emitterInstance.mIgnore) {
                 continue;
             }
 
@@ -1487,7 +1621,8 @@ void GpuParticleSystemWorld::emitParticleCreateGpu()
             //            Ogre::uint32 firstParticle = (emitterInstance.mParticleArrayStart + emitterInstance.mParticleCount) % emitterInstance.mEmitterParticleMaxCount;
             //            Ogre::uint32 lastParticle = (emitterInstance.mParticleArrayStart + emitterInstance.mParticleCreatedCount + particlesToCreate - 1) % emitterInstance.mEmitterParticleMaxCount;
 
-            if(emitterInstance.isStatic() || mInitLocationInUpdate) {
+//            if(emitterInstance.isStatic() || mInitLocationInUpdate) {
+            if(mInitLocationInUpdate) {
 
                 if(!emitterInstance.mGpuParticleEmitter->mBurstMode) {
                     // Create whole bucket of particles ahead of time.
@@ -1565,7 +1700,7 @@ void GpuParticleSystemWorld::emitParticleCreateGpu()
     hlmsCompute->dispatch( mCreateParticlesJob, 0, 0 );
 }
 
-void GpuParticleSystemWorld::emitParticleUpdateGpu(Ogre::uint32& resultEntriesCount)
+void GpuParticleSystemWorld::emitParticleUpdateGpu(const uint32& entriesCount)
 {
 
     Ogre::RenderSystem* renderSystem = Ogre::Root::getSingleton().getRenderSystem();
@@ -1574,28 +1709,28 @@ void GpuParticleSystemWorld::emitParticleUpdateGpu(Ogre::uint32& resultEntriesCo
     Ogre::HlmsCompute* hlmsCompute = Root::getSingleton().getHlmsManager()->getComputeHlms();
     ////    Ogre::HlmsComputeJob* job = mUpdateParticlesJob;
 
-    Ogre::uint32 entriesCount = 0;
-    {
-        Ogre::uint32 * RESTRICT_ALIAS entryBucketBuffer = reinterpret_cast<Ogre::uint32*>( mCpuEntryBucketBuffer );
-        const Ogre::uint32 *entryBucketBufferStart = entryBucketBuffer;
+//    Ogre::uint32 entriesCount = 0;
+//    {
+//        Ogre::uint32 * RESTRICT_ALIAS entryBucketBuffer = reinterpret_cast<Ogre::uint32*>( mCpuEntryBucketBuffer );
+//        const Ogre::uint32 *entryBucketBufferStart = entryBucketBuffer;
 
-        // upload bucketGroup for existing particles
-        for (size_t i = 0; i < mEmitterInstances.size(); ++i) {
-            Ogre::uint32 entriesForInstance = uploadBucketsForInstance(entryBucketBuffer, i);
-            entriesCount += entriesForInstance;
-        }
+//        // upload bucketGroup for existing particles
+//        for (size_t i = 0; i < mEmitterInstances.size(); ++i) {
+//            Ogre::uint32 entriesForInstance = uploadBucketsForInstance(entryBucketBuffer, i);
+//            entriesCount += entriesForInstance;
+//        }
 
-        OGRE_ASSERT_LOW( (size_t)(entryBucketBuffer - entryBucketBufferStart) * sizeof(float) <=
-                         mEntryBucketBuffer->getTotalSizeBytes() );
+//        OGRE_ASSERT_LOW( (size_t)(entryBucketBuffer - entryBucketBufferStart) * sizeof(float) <=
+//                         mEntryBucketBuffer->getTotalSizeBytes() );
 
-        // TODO: is setting rest of the memory necessary?
-        //Fill the remaining bytes with 0
-        memset( entryBucketBuffer, 0, mEntryBucketBuffer->getTotalSizeBytes() -
-                (static_cast<size_t>(entryBucketBuffer - entryBucketBufferStart) * sizeof(float)) );
+//        // TODO: is setting rest of the memory necessary?
+//        //Fill the remaining bytes with 0
+//        memset( entryBucketBuffer, 0, mEntryBucketBuffer->getTotalSizeBytes() -
+//                (static_cast<size_t>(entryBucketBuffer - entryBucketBufferStart) * sizeof(float)) );
 
-        mEntryBucketBuffer->upload( mCpuEntryBucketBuffer, 0u, mEntryBucketBuffer->getNumElements() );
-    }
-    resultEntriesCount = entriesCount;
+//        mEntryBucketBuffer->upload( mCpuEntryBucketBuffer, 0u, mEntryBucketBuffer->getNumElements() );
+//    }
+//    resultEntriesCount = entriesCount;
 
     if(entriesCount == 0) {
         return;
@@ -1733,7 +1868,7 @@ uint64 GpuParticleSystemWorld::getNextId() const
     return idCounter;
 }
 
-void GpuParticleSystemWorld::prepareForRender()
+void GpuParticleSystemWorld::prepareEntriesForUpdateAndRender(Ogre::uint32& resultEntriesCount)
 {
     // clear particle renderable data cached
     for (size_t i = 0; i < mParticleRenderables.size(); ++i) {
@@ -1744,7 +1879,9 @@ void GpuParticleSystemWorld::prepareForRender()
     // assign emitter instances to renderables
     for (size_t i = 0; i < mEmitterInstances.size(); ++i) {
         EmitterInstance& emitterInstance = mEmitterInstances[i];
-        emitterInstance.mParticleRenderable->mCachedInstanceIndexes.push_back(i);
+        if(!emitterInstance.mIgnore) {
+            emitterInstance.mParticleRenderable->mCachedInstanceIndexes.push_back(i);
+        }
     }
 
     // upload buckets and set primitive range for each renderable.
@@ -1777,8 +1914,22 @@ void GpuParticleSystemWorld::prepareForRender()
                 (static_cast<size_t>(entryBucketBuffer - entryBucketBufferStart) * sizeof(float)) );
 
         mEntryBucketBuffer->upload( mCpuEntryBucketBuffer, 0u, mEntryBucketBuffer->getNumElements() );
-    }
 
+        resultEntriesCount = entriesCount;
+    }
+}
+
+GpuParticleSystemWorld::EmitterInstanceIdToListIndex::iterator GpuParticleSystemWorld::findEmitterInstanceIt(int listIndex)
+{
+    Ogre::uint64 id = mEmitterInstances[listIndex].mId;
+    std::pair<EmitterInstanceIdToListIndex::iterator, EmitterInstanceIdToListIndex::iterator> idItRange
+            = mEmitterInstanceIdToListIndex.equal_range(id);
+    for(EmitterInstanceIdToListIndex::iterator it = idItRange.first; it != idItRange.second; ++it) {
+        if(it->second == listIndex) {
+            return it;
+        }
+    }
+    return mEmitterInstanceIdToListIndex.end();
 }
 
 HlmsComputeJob* GpuParticleSystemWorld::getParticleCreateComputeJob()
