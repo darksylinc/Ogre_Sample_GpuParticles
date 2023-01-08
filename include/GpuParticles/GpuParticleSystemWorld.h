@@ -339,17 +339,17 @@ private:
     Ogre::uint32 getBucketsForNumber(Ogre::uint32 number) const;
     void uploadToGpuEmitterCores();
     template <class T, int Elements, int Size>
-    void uploadTrack(float *& RESTRICT_ALIAS buffer, const std::map<float, T>& track, const T& defaultStartValue);
-    void uploadVector3Track(float *& RESTRICT_ALIAS buffer, const std::map<float, Ogre::Vector3>& track);
-    void uploadVector2Track(float *& RESTRICT_ALIAS buffer, const std::map<float, Ogre::Vector2>& track);
-    void uploadFloatTrack(float *& RESTRICT_ALIAS buffer, const std::map<float, float>& track, float defaultStartValue);
-    void uploadU32ToFloatArray(float *& RESTRICT_ALIAS buffer, Ogre::uint32 value);
+	void uploadTrack(float *RESTRICT_ALIAS & buffer, const std::map<float, T>& track, const T& defaultStartValue);
+	void uploadVector3Track(float *RESTRICT_ALIAS & buffer, const std::map<float, Ogre::Vector3>& track);
+	void uploadVector2Track(float *RESTRICT_ALIAS & buffer, const std::map<float, Ogre::Vector2>& track);
+	void uploadFloatTrack(float *RESTRICT_ALIAS & buffer, const std::map<float, float>& track, float defaultStartValue);
+	void uploadU32ToFloatArray(float *RESTRICT_ALIAS & buffer, Ogre::uint32 value);
     void uploadToGpuEmitterInstances();
-    void uploadEntryBucketRow(Ogre::uint32 *& RESTRICT_ALIAS entryBucketBuffer, const BucketGroupData& bucketGroup);
+	void uploadEntryBucketRow(Ogre::uint32 *RESTRICT_ALIAS & entryBucketBuffer, const BucketGroupData& bucketGroup);
     void uploadToGpuParticleWorld(float elapsedTime);
     /// @returns number of entries generated for instance
-    Ogre::uint32 uploadBucketsForInstance(Ogre::uint32 *& RESTRICT_ALIAS entryBucketBuffer, size_t emitterInstanceIndex);
-    Ogre::uint32 uploadBucketsForInstance(Ogre::uint32 *& RESTRICT_ALIAS entryBucketBuffer, size_t emitterInstanceIndex, Ogre::uint32 lastParticle, Ogre::uint32 particleCount);
+	Ogre::uint32 uploadBucketsForInstance(Ogre::uint32 *RESTRICT_ALIAS & entryBucketBuffer, size_t emitterInstanceIndex);
+	Ogre::uint32 uploadBucketsForInstance(Ogre::uint32 *RESTRICT_ALIAS & entryBucketBuffer, size_t emitterInstanceIndex, Ogre::uint32 lastParticle, Ogre::uint32 particleCount);
 
     void emitParticleCreateGpu();
     void emitParticleUpdateGpu(Ogre::uint32& resultEntriesCount);
@@ -369,13 +369,13 @@ private:
 };
 
 template<class T, int Elements, int Size>
-void GpuParticleSystemWorld::uploadTrack(float*& buffer, const std::map<float, T>& track, const T& defaultStartValue)
+void GpuParticleSystemWorld::uploadTrack(float*RESTRICT_ALIAS & buffer, const std::map<float, T>& track, const T& defaultStartValue)
 {
     // Colour track times
     {
         float lastTimeValue = 0.0f;
         size_t i = 0;
-        for(std::map<float, T>::const_iterator it = track.begin();
+		for(typename std::map<float, T>::const_iterator it = track.begin();
             it != track.end(); ++it, ++i) {
             if(i >= GpuParticleEmitter::MaxTrackValues) {
                 break;
@@ -395,7 +395,7 @@ void GpuParticleSystemWorld::uploadTrack(float*& buffer, const std::map<float, T
     {
         T lastValue = defaultStartValue;
         size_t i = 0;
-        for(std::map<float, T>::const_iterator it = track.begin();
+		for(typename std::map<float, T>::const_iterator it = track.begin();
             it != track.end(); ++it, ++i) {
             if(i >= GpuParticleEmitter::MaxTrackValues) {
                 break;

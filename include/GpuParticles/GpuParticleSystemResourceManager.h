@@ -17,8 +17,7 @@ class GpuParticleSystem;
 
 /// Class managing particle systems as resources.
 class GpuParticleSystemResourceManager
-        : public Ogre::Singleton<GpuParticleSystemResourceManager>
-        , public Ogre::FXAlloc
+		: public Ogre::Singleton<GpuParticleSystemResourceManager>
 {
 public:
 

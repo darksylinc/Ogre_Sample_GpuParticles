@@ -166,7 +166,10 @@ HlmsParticle* HlmsParticle::registerHlms(const Ogre::String& rootHlmsFolder, con
     return hlms;
 }
 
-Ogre::uint32 HlmsParticle::fillBuffersFor(const Ogre::HlmsCache* cache, const Ogre::QueuedRenderable& queuedRenderable, bool casterPass, Ogre::uint32 lastCacheHash, Ogre::CommandBuffer* commandBuffer, bool isV1)
+Ogre::uint32 HlmsParticle::fillBuffersForV2( const Ogre::HlmsCache *cache,
+											 const Ogre::QueuedRenderable &queuedRenderable,
+											 bool casterPass, Ogre::uint32 lastCacheHash,
+											 Ogre::CommandBuffer *commandBuffer )
 {
 
     const Ogre::Renderable::CustomParameterMap &customParams = queuedRenderable.renderable->getCustomParameters();
@@ -181,18 +184,18 @@ Ogre::uint32 HlmsParticle::fillBuffersFor(const Ogre::HlmsCache* cache, const Og
         // Particles data
         {
             Ogre::ReadOnlyBufferPacked* particleDataTexBuffer = particleSystemWorld->getParticleBufferAsReadOnly();
-            int totalSize = GpuParticleSystemWorld::ParticleDataStructSize * particleSystemWorld->getMaxParticles();
-            *commandBuffer->addCommand<Ogre::CbShaderBuffer>() = Ogre::CbShaderBuffer(Ogre::VertexShader, ParticleDataTexSlot, particleDataTexBuffer, 0, totalSize);
-            *commandBuffer->addCommand<Ogre::CbShaderBuffer>() = Ogre::CbShaderBuffer(Ogre::PixelShader, ParticleDataTexSlot, particleDataTexBuffer, 0, totalSize);
-    //        rebindTexBuffer( commandBuffer );
+			int totalSize = GpuParticleSystemWorld::ParticleDataStructSize * particleSystemWorld->getMaxParticles();
+			*commandBuffer->addCommand<Ogre::CbShaderBuffer>() = Ogre::CbShaderBuffer(Ogre::VertexShader, ParticleDataTexSlot, particleDataTexBuffer, 0, totalSize);
+			*commandBuffer->addCommand<Ogre::CbShaderBuffer>() = Ogre::CbShaderBuffer(Ogre::PixelShader, ParticleDataTexSlot, particleDataTexBuffer, 0, totalSize);
+	//        rebindTexBuffer( commandBuffer );
         }
 
         // Bucket data
         {
             Ogre::ReadOnlyBufferPacked* bucketGroupsBuffer = particleSystemWorld->getEntryBucketBufferAsReadOnly();
             int totalSize = GpuParticleSystemWorld::EntryBucketDataStructSize * particleSystemWorld->getBucketGroupsCountToRender();
-            *commandBuffer->addCommand<Ogre::CbShaderBuffer>() = Ogre::CbShaderBuffer(Ogre::VertexShader, BucketGroupDataTexSlot, bucketGroupsBuffer, 0, totalSize);
-            *commandBuffer->addCommand<Ogre::CbShaderBuffer>() = Ogre::CbShaderBuffer(Ogre::PixelShader, BucketGroupDataTexSlot, bucketGroupsBuffer, 0, totalSize);
+			*commandBuffer->addCommand<Ogre::CbShaderBuffer>() = Ogre::CbShaderBuffer(Ogre::VertexShader, BucketGroupDataTexSlot, bucketGroupsBuffer, 0, totalSize);
+			*commandBuffer->addCommand<Ogre::CbShaderBuffer>() = Ogre::CbShaderBuffer(Ogre::PixelShader, BucketGroupDataTexSlot, bucketGroupsBuffer, 0, totalSize);
     //        rebindTexBuffer( commandBuffer );
         }
 
@@ -200,16 +203,18 @@ Ogre::uint32 HlmsParticle::fillBuffersFor(const Ogre::HlmsCache* cache, const Og
         {
             Ogre::ReadOnlyBufferPacked* emitterCoreBuffer = particleSystemWorld->getEmitterCoreBufferAsReadOnly();
             int totalSize = GpuParticleSystemWorld::EmitterCoreDataStructSize * particleSystemWorld->getMaxEmitterCores();
-            *commandBuffer->addCommand<Ogre::CbShaderBuffer>() = Ogre::CbShaderBuffer(Ogre::VertexShader, EmitterCoreDataTexSlot, emitterCoreBuffer, 0, totalSize);
-            *commandBuffer->addCommand<Ogre::CbShaderBuffer>() = Ogre::CbShaderBuffer(Ogre::PixelShader, EmitterCoreDataTexSlot, emitterCoreBuffer, 0, totalSize);
+			*commandBuffer->addCommand<Ogre::CbShaderBuffer>() = Ogre::CbShaderBuffer(Ogre::VertexShader, EmitterCoreDataTexSlot, emitterCoreBuffer, 0, totalSize);
+			*commandBuffer->addCommand<Ogre::CbShaderBuffer>() = Ogre::CbShaderBuffer(Ogre::PixelShader, EmitterCoreDataTexSlot, emitterCoreBuffer, 0, totalSize);
     //        rebindTexBuffer( commandBuffer );
         }
 
         startBucketIndex = particleRenderable->getCachedStartBucketIndex();
     }
 
-    // Keep in mind that only the first one has to be correct, as Ogre's auto instancing will increment the base value automatically.
-    Ogre::uint32 drawId = Ogre::HlmsUnlit::fillBuffersFor(cache, queuedRenderable, casterPass, lastCacheHash, commandBuffer, isV1);
+	// Keep in mind that only the first one has to be correct, as Ogre's auto instancing will increment
+	// the base value automatically.
+	Ogre::uint32 drawId =
+		HlmsUnlit::fillBuffersForV2( cache, queuedRenderable, casterPass, lastCacheHash, commandBuffer );
 
     // After Ogre::HlmsUnlit::fillBuffersFor const buffer was already filled. There was one
     // unused value though at position [3]. Buffer  was shifted by 4.

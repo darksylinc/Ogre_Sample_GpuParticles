@@ -112,28 +112,11 @@ public:
 
     static HlmsParticle* registerHlms(const Ogre::String& rootHlmsFolder, const Ogre::String& particleRootHlmsFolder);
 
-    Ogre::uint32 fillBuffersForV1(const Ogre::HlmsCache* cache,
-        const Ogre::QueuedRenderable& queuedRenderable,
-        bool casterPass, Ogre::uint32 lastCacheHash,
-        Ogre::CommandBuffer* commandBuffer)
-    {
-        return fillBuffersFor(cache, queuedRenderable, casterPass,
-            lastCacheHash, commandBuffer, true);
-    }
     //-----------------------------------------------------------------------------------
     Ogre::uint32 fillBuffersForV2(const Ogre::HlmsCache* cache,
         const Ogre::QueuedRenderable& queuedRenderable,
         bool casterPass, Ogre::uint32 lastCacheHash,
-        Ogre::CommandBuffer* commandBuffer)
-    {
-        return fillBuffersFor(cache, queuedRenderable, casterPass,
-            lastCacheHash, commandBuffer, false);
-    }
-
-    /// Buffers for one renderable
-    Ogre::uint32 fillBuffersFor(const Ogre::HlmsCache* cache, const Ogre::QueuedRenderable& queuedRenderable,
-        bool casterPass, Ogre::uint32 lastCacheHash,
-        Ogre::CommandBuffer* commandBuffer, bool isV1);
+		Ogre::CommandBuffer* commandBuffer) override;
 
 
     virtual void frameEnded() override;

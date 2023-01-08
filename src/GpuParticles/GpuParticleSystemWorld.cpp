@@ -1078,7 +1078,7 @@ void GpuParticleSystemWorld::uploadToGpuEmitterCores()
 {
 #define AS_U32PTR( x ) reinterpret_cast<uint32*RESTRICT_ALIAS>(x)
 
-    float * RESTRICT_ALIAS buffer = reinterpret_cast<float*>( mCpuEmitterCoreBuffer );
+	float * RESTRICT_ALIAS buffer = reinterpret_cast<float*RESTRICT_ALIAS >( mCpuEmitterCoreBuffer );
     const float *bufferStart = buffer;
 
     for (size_t i = 0; i < mRegisteredEmitterCores.size(); ++i) {
@@ -1206,17 +1206,17 @@ void GpuParticleSystemWorld::uploadToGpuEmitterCores()
 #undef AS_U32PTR
 }
 
-void GpuParticleSystemWorld::uploadVector3Track(float*& buffer, const std::map<float, Vector3>& track)
+void GpuParticleSystemWorld::uploadVector3Track(float*RESTRICT_ALIAS & buffer, const std::map<float, Vector3>& track)
 {
     uploadTrack<Ogre::Vector3, 3, GpuParticleEmitter::MaxTrackValues>(buffer, track, Ogre::Vector3::ZERO);
 }
 
-void GpuParticleSystemWorld::uploadVector2Track(float*& buffer, const std::map<float, Vector2>& track)
+void GpuParticleSystemWorld::uploadVector2Track(float*RESTRICT_ALIAS & buffer, const std::map<float, Vector2>& track)
 {
     uploadTrack<Ogre::Vector2, 2, GpuParticleEmitter::MaxTrackValues>(buffer, track, Ogre::Vector2::ZERO);
 }
 
-void GpuParticleSystemWorld::uploadFloatTrack(float*& buffer, const std::map<float, float>& track, float defaultStartValue)
+void GpuParticleSystemWorld::uploadFloatTrack(float*RESTRICT_ALIAS & buffer, const std::map<float, float>& track, float defaultStartValue)
 {
     // Track times
     {
@@ -1255,7 +1255,7 @@ void GpuParticleSystemWorld::uploadFloatTrack(float*& buffer, const std::map<flo
     }
 }
 
-void GpuParticleSystemWorld::uploadU32ToFloatArray(float*& buffer, uint32 value)
+void GpuParticleSystemWorld::uploadU32ToFloatArray(float*RESTRICT_ALIAS & buffer, uint32 value)
 {
     //#define AS_U32PTR( x ) reinterpret_cast<uint32*RESTRICT_ALIAS>(x)
     //#endif
@@ -1310,7 +1310,7 @@ void GpuParticleSystemWorld::uploadToGpuEmitterInstances()
 
 }
 
-void GpuParticleSystemWorld::uploadEntryBucketRow(Ogre::uint32*& RESTRICT_ALIAS entryBucketBuffer, const GpuParticleSystemWorld::BucketGroupData& bucketGroup)
+void GpuParticleSystemWorld::uploadEntryBucketRow(Ogre::uint32*RESTRICT_ALIAS & entryBucketBuffer, const GpuParticleSystemWorld::BucketGroupData& bucketGroup)
 {
     //    *entryBucketBuffer++ = bucketGroup.bucketId;
     *entryBucketBuffer++ = bucketGroup.emitterInstanceId;
@@ -1366,7 +1366,7 @@ void GpuParticleSystemWorld::uploadToGpuParticleWorld(float elapsedTime)
 
 }
 
-uint32 GpuParticleSystemWorld::uploadBucketsForInstance(Ogre::uint32 *& RESTRICT_ALIAS entryBucketBuffer, size_t emitterInstanceIndex)
+uint32 GpuParticleSystemWorld::uploadBucketsForInstance(Ogre::uint32 *RESTRICT_ALIAS & entryBucketBuffer, size_t emitterInstanceIndex)
 {
     EmitterInstance& emitterInstance = mEmitterInstances[emitterInstanceIndex];
     Ogre::uint32 particleCount = emitterInstance.mParticleCount + emitterInstance.mParticleAddedThisFrameCount;
@@ -1381,7 +1381,7 @@ uint32 GpuParticleSystemWorld::uploadBucketsForInstance(Ogre::uint32 *& RESTRICT
     return uploadBucketsForInstance(entryBucketBuffer, emitterInstanceIndex, lastParticle, particleCount);
 }
 
-uint32 GpuParticleSystemWorld::uploadBucketsForInstance(uint32*& entryBucketBuffer, size_t emitterInstanceIndex, uint32 lastParticle, uint32 particleCount)
+uint32 GpuParticleSystemWorld::uploadBucketsForInstance(uint32*RESTRICT_ALIAS & entryBucketBuffer, size_t emitterInstanceIndex, uint32 lastParticle, uint32 particleCount)
 {
     Ogre::uint32 instanceEntriesCount = 0;
     EmitterInstance& emitterInstance = mEmitterInstances[emitterInstanceIndex];
@@ -1449,7 +1449,7 @@ void GpuParticleSystemWorld::emitParticleCreateGpu()
     // upload bucketGroup for particles to add
     Ogre::uint32 entriesCount = 0;
     {
-        Ogre::uint32 * RESTRICT_ALIAS entryBucketBuffer = reinterpret_cast<Ogre::uint32*>( mCpuEntryBucketBuffer );
+		Ogre::uint32 * RESTRICT_ALIAS entryBucketBuffer = reinterpret_cast<Ogre::uint32*RESTRICT_ALIAS >( mCpuEntryBucketBuffer );
         const Ogre::uint32 *entryBucketBufferStart = entryBucketBuffer;
 
         // upload bucketGroup for existing particles
