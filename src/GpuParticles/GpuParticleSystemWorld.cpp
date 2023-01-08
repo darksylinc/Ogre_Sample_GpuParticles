@@ -21,8 +21,8 @@
 #include <OgreHlmsCompute.h>
 #include <OgreHlmsComputeJob.h>
 
-#include <OgreCompositorNode.h>
-#include <OgreCompositorWorkspace.h>
+#include <Compositor/OgreCompositorNode.h>
+#include <Compositor/OgreCompositorWorkspace.h>
 #include <OgreImage2.h>
 
 #include <OgreLogManager.h>
