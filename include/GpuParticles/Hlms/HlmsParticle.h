@@ -88,7 +88,7 @@ public:
 
         HlmsUnlit::notifyPropertiesMergedPreGenerationStep();
 
-        setTextureReg(Ogre::VertexShader, "texParticleData", ParticleDataTexSlot);
+        // setTextureReg(Ogre::VertexShader, "texParticleData", ParticleDataTexSlot);
     }
 
     static void getAdditionalDefaultPaths(Ogre::String &outDataFolderPath, Ogre::StringVector& outLibraryFoldersPaths, bool withHlmsPathPrefix = true) {

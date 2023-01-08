@@ -1970,12 +1970,16 @@ HlmsComputeJob* GpuParticleSystemWorld::getParticleCreateComputeJob()
     {
         Ogre::HlmsCompute* hlmsCompute = Root::getSingleton().getHlmsManager()->getComputeHlms();
         Ogre::StringVector pieceFiles;
+        pieceFiles.push_back("CrossPlatformSettings_piece_all");
         pieceFiles.push_back("ComputeParticleWorld_piece_all.any");
-        job = hlmsCompute->createComputeJob("HlmsParticle/ParticleWorldCreate", "HlmsParticle/ParticleWorldCreate", "ComputeParticleWorldCreate_cs", pieceFiles);
-        job->setThreadsPerGroup(64, 1, 1);
+        job = hlmsCompute->createComputeJob( "HlmsParticle/ParticleWorldCreate",
+                                             "HlmsParticle/ParticleWorldCreate",
+                                             "ComputeParticleWorldCreate_cs", pieceFiles );
+        job->setThreadsPerGroup( 64, 1, 1 );
         job->setInformHlmsOfTextureData(false);
         job->setNumUavUnits(1);
         job->setNumTexUnits(4);
+        job->setGlTexSlotStart( 1u );
         if(mInitLocationInUpdate) {
             job->setProperty(Ogre::IdString("initLocationInUpdate"), 1);
         }
@@ -2001,6 +2005,7 @@ HlmsComputeJob* GpuParticleSystemWorld::getParticleUpdateComputeJob()
     {
         Ogre::HlmsCompute* hlmsCompute = Root::getSingleton().getHlmsManager()->getComputeHlms();
         Ogre::StringVector pieceFiles;
+        pieceFiles.push_back("CrossPlatformSettings_piece_all");
         pieceFiles.push_back("ComputeParticleWorld_piece_all.any");
         job = hlmsCompute->createComputeJob("HlmsParticle/ParticleWorldUpdate", "HlmsParticle/ParticleWorldUpdate", "ComputeParticleWorldUpdate_cs", pieceFiles);
         job->setThreadsPerGroup(64, 1, 1);
@@ -2011,6 +2016,7 @@ HlmsComputeJob* GpuParticleSystemWorld::getParticleUpdateComputeJob()
         //        job->setNumThreadGroupsBasedOn(HlmsComputeJob::ThreadGroupsBasedOnUav, ComputeSimulationParticleUavSlot, 1, 1, 1);
         job->setInformHlmsOfTextureData(false);
         job->setNumUavUnits(1);
+        job->setGlTexSlotStart(1u);
         //        job->setNumTexUnits(4);
 
         int texUnits = 4;

@@ -1,14 +1,25 @@
+@insertpiece( SetCrossPlatformSettings )
 
 @insertpiece( ParticleWorldRandom )
 
 @insertpiece( ParticleWorldStructures )
 
-static const float PI = 3.14159265;
+const float PI = 3.14159265;
 
 float3x3 getXRotationMatrix(float angle)
 {
+@property( syntax == hlsl )
     float s, c;
     sincos(angle, s, c);
+@end
+@property( syntax == glsl || syntax == glslvk )
+    float s = sin( angle );
+    float c = cos( angle );
+@end
+@property( syntax == metal )
+    float s, c;
+    s = sincos(angle, c);
+@end
     return float3x3(
         1, 0, 0,
         0, c,-s,
@@ -18,8 +29,18 @@ float3x3 getXRotationMatrix(float angle)
 
 float3x3 getYRotationMatrix(float angle)
 {
+@property( syntax == hlsl )
     float s, c;
     sincos(angle, s, c);
+@end
+@property( syntax == glsl || syntax == glslvk )
+    float s = sin( angle );
+    float c = cos( angle );
+@end
+@property( syntax == metal )
+    float s, c;
+    s = sincos(angle, c);
+@end
     return float3x3(
         c, 0, s,
         0, 1, 0,
@@ -27,12 +48,41 @@ float3x3 getYRotationMatrix(float angle)
     );
 }
 
-RWStructuredBuffer<Particle> particleDataList : register(u0);
-StructuredBuffer<EmitterCoreData> emitterCoreData : register(t0);
-// InstanceData should come as Const buffer: emitter location matrix - those values changes per turn, but won't be modified here.
-StructuredBuffer<EmitterInstanceData> emitterInstanceData : register(t1);
-StructuredBuffer<BucketGroup> bucketGroupData : register(t2);
-StructuredBuffer<ParticleWorld> particleWorld : register(t3);
+@property( syntax == glsl )
+    #define ogre_U0 binding = 0
+    #define ogre_T0 binding = 1
+    #define ogre_T1 binding = 2
+    #define ogre_T2 binding = 3
+    #define ogre_T3 binding = 4
+@end
+
+layout(std430, ogre_U0) /*writeonly ?*/ restrict buffer particleDataListBuf
+{
+    Particle particleDataList[];
+};
+
+layout(std430, ogre_T0) readonly restrict buffer emitterCoreDataBuf
+{
+    EmitterCoreData emitterCoreData[];
+};
+// InstanceData should come as Const buffer: emitter location matrix -
+// those values changes per turn, but won't be modified here.
+layout(std430, ogre_T1) readonly restrict buffer emitterInstanceDataBuf
+{
+    EmitterInstanceData emitterInstanceData[];
+};
+layout(std430, ogre_T2) readonly restrict buffer bucketGroupDataBuf
+{
+    BucketGroup bucketGroupData[];
+};
+layout(std430, ogre_T3) readonly restrict buffer particleWorldBuf
+{
+    ParticleWorld particleWorld[];
+};
+
+layout( local_size_x = @value( threads_per_group_x ),
+        local_size_y = @value( threads_per_group_y ),
+        local_size_z = @value( threads_per_group_z ) ) in;
 
 // Max particles may be const (once per shader compilation) 
 uniform uint BucketSize;
@@ -40,13 +90,7 @@ uniform uint MaxParticles;
 
 @insertpiece( custom_ComputeParticleWorldCreate_declarations)
 
-[numthreads(@value( threads_per_group_x ), @value( threads_per_group_y ), @value( threads_per_group_z ))]
-void main
-(
-	uint3 gl_GlobalInvocationID		: SV_DispatchThreadId,
-	uint3 gl_WorkGroupID			: SV_GroupID,
-	uint gl_LocalInvocationIndex	: SV_GroupIndex
-)
+void main()
 {
     uint bucketGroupId = gl_GlobalInvocationID.x / BucketSize;
     uint localId = gl_GlobalInvocationID.x % BucketSize;
@@ -70,7 +114,7 @@ void main
 
     NumberGenerator random;
     random.seed = float2(particleIndex, particleWorld[0].randomIteration);
-    random.seedAddon = MaxParticles+1;
+    random.seedAddon = int( MaxParticles + 1u );
     
 @property(!initLocationInUpdate)
     particle.lifetime = 0.0;
@@ -111,7 +155,9 @@ void main
         // disc shape
         
         float angle = lerp(-PI, PI, NumberGenerator_generate( random ));
-        float r = lerp(emitterCore.spawnShapeDimensions.x, emitterCore.spawnShapeDimensions.y, NumberGenerator_generate( random ));
+        float r = lerp(emitterCore.spawnShapeDimensions.x,
+                       emitterCore.spawnShapeDimensions.y,
+                       NumberGenerator_generate( random ));
 
         float3x3 sphereHMatrix = getYRotationMatrix(angle);
         float3 vec = float3(0.0, 0.0, r);
@@ -128,7 +174,7 @@ void main
     particle.rot = 0.0;
     float sizeX = lerp(emitterCore.sizeX.x, emitterCore.sizeX.y, NumberGenerator_generate( random ));
     float sizeY = sizeX;
-    if(!emitterCore.uniformSize) {
+    if(emitterCore.uniformSize != 0u) {
         sizeY = lerp(emitterCore.sizeY.x, emitterCore.sizeY.y, NumberGenerator_generate( random ));
     }
     particle.size = float2(sizeX, sizeY);
@@ -152,11 +198,13 @@ void main
     particle.dir = dir;
 @end
 
-    particle.dirVelocity = lerp(emitterCore.directionVelocity.x, emitterCore.directionVelocity.y, NumberGenerator_generate( random ));
+    particle.dirVelocity = lerp(emitterCore.directionVelocity.x,
+                                emitterCore.directionVelocity.y,
+                                NumberGenerator_generate( random ));
     
-    if(emitterCore.spriteRange != 0) {
+    if(emitterCore.spriteRange != 0u) {
         // particle.spriteNumber = emitterCore.spriteRange-1;
-        particle.spriteNumber = NumberGenerator_generate( random ) * (float)emitterCore.spriteRange;
+        particle.spriteNumber = NumberGenerator_generate( random ) * float(emitterCore.spriteRange);
     }
     
     @insertpiece( custom_ComputeParticleWorldCreate_end )
