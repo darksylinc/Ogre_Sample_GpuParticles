@@ -16,6 +16,9 @@
 #include "System/Android/AndroidSystems.h"
 #include "System/MainEntryPoints.h"
 
+#include <GpuParticles/GpuParticleSystemJsonManager.h>
+#include <GpuParticles/GpuParticleSystemResourceManager.h>
+
 #if OGRE_PLATFORM == OGRE_PLATFORM_APPLE || OGRE_PLATFORM == OGRE_PLATFORM_APPLE_IOS
     #include "OSX/macUtils.h"
     #if OGRE_PLATFORM == OGRE_PLATFORM_APPLE_IOS
@@ -36,10 +39,14 @@ namespace Demo
                                                     "Sample_GpuParticlesWorkspace", true );
         }
 
-//        virtual void setupResources(void)
-//        {
-//            GraphicsSystem::setupResources();
-//        }
+        virtual void setupResources(void)
+        {
+            GpuParticleSystemResourceManager* gpuParticleSystemResourceManager = new GpuParticleSystemResourceManager();
+            gpuParticleSystemResourceManager->registerCommonAffectors();
+            GpuParticleSystemJsonManager* gpuParticleSystemJsonManager = new GpuParticleSystemJsonManager();
+
+            GraphicsSystem::setupResources();
+        }
 
         virtual void registerHlms(void)
         {
@@ -62,7 +69,7 @@ namespace Demo
 
 #if OGRE_PLATFORM == OGRE_PLATFORM_APPLE || OGRE_PLATFORM == OGRE_PLATFORM_APPLE_IOS
             Ogre::String rootHlmsFolderParticle = Ogre::macBundlePath() + '/' +
-                                          cf.getSetting( "DoNotUseAsResource", "Hlms", "" );
+                                          cf.getSetting( "DoNotUseAsResourceParticle", "Hlms", "" );
 #else
             Ogre::String rootHlmsFolderParticle = mResourcePath +
                                           cf.getSetting( "DoNotUseAsResourceParticle", "Hlms", "" );
@@ -77,7 +84,7 @@ namespace Demo
 
     public:
         Sample_GpuParticlesGraphicsSystem( GameState *gameState ) :
-            GraphicsSystem( gameState )
+            GraphicsSystem( gameState, "../Data/" )
         {
         }
     };

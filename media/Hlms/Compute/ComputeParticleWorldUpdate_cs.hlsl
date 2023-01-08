@@ -53,6 +53,7 @@ float3 getReflectionVec(float3 dir, float3 n)
     return dir - 2.0 * dot(dir, n) * n;
 }
 
+@insertpiece( custom_ComputeParticleWorldUpdate_declarations)
 
 [numthreads(@value( threads_per_group_x ), @value( threads_per_group_y ), @value( threads_per_group_z ))]
 void main
@@ -79,7 +80,24 @@ void main
     // uint particleIndex = entry.bucketId * BucketSize + localId;
     #define particle particleDataList[particleIndex]
     #define emitterCore emitterCoreData[entry.emitterCoreId]
+    #define emitterInstance emitterInstanceData[entry.emitterInstanceId]
+
     float elapsedTime = world.elapsedTime;
+
+@property(initLocationInUpdate)
+    if(particle.lifetime < 0.0f ) {
+        particle.lifetime = 0.0f;
+        
+        // particle.pos after creation will be in local coordinates
+        float4 localPos = float4(particle.pos, 1.0);
+        particle.pos = mul(localPos, emitterInstance.emitterLocation).xyz;
+        
+        float3x3 emitterRotMatrix = (float3x3)emitterInstance.emitterLocation;
+        particle.dir = mul(particle.dir, emitterRotMatrix);
+        
+        @insertpiece( custom_ComputeParticleWorldUpdate_initLocationInUpdate )
+    }
+@end
 
 	// float fDepth = depthTexture.SampleLevel( depthSamplerState, float2(0.0, 0.0), 0 ).x;
 	// float linearDepth = world.cameraProjectionParamsAB.y / (fDepth - world.cameraProjectionParamsAB.x);
@@ -92,8 +110,8 @@ void main
     //     linearDepth = 0.0f;
     // }
     
-@property(useDepthTexture)
-    if(emitterCore.useDepthCollision)
+@property(useDepthTexture && affector_depth_collision)
+    if(emitterCore.affectorDepthCollisionEnabled)
     {  
         float4 pos2d = posToScreen(float4(particle.pos, 1.0));
         if(pos2d.x > -1.0 && pos2d.x < 1.0 && pos2d.y > -1.0 && pos2d.y < 1.0) {
@@ -131,7 +149,7 @@ void main
 
     particle.lifetime += elapsedTime;
     
-    if(particle.lifetime < 0.0f || particle.lifetime > particle.maxLifetime) {
+    if(particle.lifetime > particle.maxLifetime) {
         return;
     }
     
@@ -140,7 +158,9 @@ void main
     particle.pos += particle.dir*particle.dirVelocity*elapsedTime;
     
     float3 dir = particle.dir * particle.dirVelocity;
-    dir += emitterCore.gravity * elapsedTime;
+@property(affector_global_gravity)
+    dir += emitterCore.affectorGlobalGravity * elapsedTime;
+@end
     particle.dirVelocity = length(dir);
     if(particle.dirVelocity != 0.0) {
         particle.dir = normalize(dir);
@@ -150,23 +170,29 @@ void main
         particle.spriteNumber = binarySearch8(particle.lifetime, emitterCore.spriteTrackTimes);
     }
     
-    if(emitterCore.useColourTrack) {
-        particle.colour.xyz = getFromTrack3(particle.lifetime, emitterCore.colourTrackTimes, emitterCore.colourTrackValues);
+@property(affector_set_colour_track)
+    if(emitterCore.affectorSetColourTrackEnabled) {
+        particle.colour.xyz = getFromTrack3(particle.lifetime, emitterCore.affectorSetColourTrackTimes, emitterCore.affectorSetColourTrackValues);
     }
-    
-    if(emitterCore.useAlphaTrack) {
-        particle.colour.w = getFromTrack1(particle.lifetime, emitterCore.alphaTrackTimes, emitterCore.alphaTrackValues);
+@end
+@property(affector_set_alpha_track)
+    if(emitterCore.affectorSetAlphaTrackEnabled) {
+        particle.colour.w = getFromTrack1(particle.lifetime, emitterCore.affectorSetAlphaTrackTimes, emitterCore.affectorSetAlphaTrackValues);
     }
-    
-    if(emitterCore.useSizeTrack) {
-        particle.size = getFromTrack2(particle.lifetime, emitterCore.sizeTrackTimes, emitterCore.sizeTrackValues);
+@end
+@property(affector_set_size_track)
+    if(emitterCore.affectorSetSizeTrackEnabled) {
+        particle.size = getFromTrack2(particle.lifetime, emitterCore.affectorSetSizeTrackTimes, emitterCore.affectorSetSizeTrackValues);
         if(emitterCore.uniformSize) {
             particle.size.y = particle.size.x;
         }
     }
-    
-    if(emitterCore.useVelocityTrack) {
-        particle.dirVelocity = getFromTrack1(particle.lifetime, emitterCore.velocityTrackTimes, emitterCore.velocityTrackValues);
+@end
+@property(affector_set_velocity_track)
+    if(emitterCore.affectorSetVelocityTrackEnabled) {
+        particle.dirVelocity = getFromTrack1(particle.lifetime, emitterCore.affectorSetVelocityTrackTimes, emitterCore.affectorSetVelocityTrackValues);
     }
-    
+@end
+
+    @insertpiece( custom_ComputeParticleWorldUpdate_end )
 }

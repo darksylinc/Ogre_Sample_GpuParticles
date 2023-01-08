@@ -24,13 +24,15 @@ class HlmsJsonParticleAtlas
                     HlmsParticleDatablock* datablock,
                     const Ogre::String &resourceGroup );
 
-    void loadFlipbook( const rapidjson::Value &json,
-                       const Ogre::HlmsJson::NamedBlocks &blocks,
-                       HlmsParticleDatablock* datablock,
-                       const Ogre::String &resourceGroup );
+    void loadFlipbookSize( const rapidjson::Value &json,
+                           const Ogre::HlmsJson::NamedBlocks &blocks,
+                           HlmsParticleDatablock* datablock,
+                           const Ogre::String &resourceGroup );
 
 public:
     HlmsJsonParticleAtlas( Ogre::HlmsManager *hlmsManager, Ogre::TextureGpuManager *textureManager );
+
+    static Ogre::String quote( const Ogre::String& value );
 
     void loadMaterial( const rapidjson::Value &json, const Ogre::HlmsJson::NamedBlocks &blocks,
                        Ogre::HlmsDatablock *datablock, const Ogre::String &resourceGroup );

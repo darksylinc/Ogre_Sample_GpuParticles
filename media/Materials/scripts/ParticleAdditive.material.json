@@ -60,10 +60,9 @@
 				"sampler" : "Sampler_4"
 			},
             
-            "flipbook" : [
-                ["a", "b"],
-                ["c", "d"]
-            ]
+            "isFlipbook" : true,
+            
+            "flipbookSize" : [2, 2]
 		}
 	}
 }

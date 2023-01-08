@@ -69,6 +69,21 @@ public:
         friend class GpuParticleSystemWorld;
     };
 
+    class EmitterInstanceRemoveListener
+    {
+    public:
+        EmitterInstanceRemoveListener() {}
+        virtual ~EmitterInstanceRemoveListener() {}
+
+        /// @param isLastEmitterOfSystem - as node is connected to all emitters from the same system
+        ///                                it may be to early to remove it after first emitter was removed.
+        ///                                True if this emitter is the last one.
+        virtual void emitterInstanceAboutToBeRemoved(Ogre::uint64 id,
+                                                     Ogre::Node* node,
+                                                     const GpuParticleEmitter* gpuParticleEmitter,
+                                                     bool isLastEmitterOfSystem) = 0;
+    };
+
     /// Instance using GpuParticleEmitter.
     class EmitterInstance
     {
@@ -78,8 +93,23 @@ public:
         ParticleRenderable* mParticleRenderable = nullptr;
         int mGpuParticleEmitterIndex = 0;
         Ogre::uint64 mId = 0;
+
+        /// If emitter create new particles every turn.
         bool mRun = true;
 
+        /// If true, emitter will remove itself after all particles died and mRun = false.
+        /// Once set to true, it can't be changed. With this unnecessary particle buckets will be freed.
+        /// Can be set by two ways:
+        /// 1) stop - sets mRun to false and mRemoveWhenFinished to true
+        /// 2) burst particles started with autoRemove = true
+        bool mRemoveWhenFinished = false;
+
+        /// Generally ignored emitter instance is hidden and frozen.
+        /// It's particle entries won't be uploaded for creating, updating and render.
+        /// If stopped with removing, ignored emitters are destroyed immediately.
+        bool mIgnore = false;
+
+        /// Node's offset.
         Ogre::Vector3 mPos = Ogre::Vector3::ZERO;
         Ogre::Quaternion mRot;
 
@@ -87,22 +117,13 @@ public:
         /// Otherwise it will take mPos and mRot instead.
         Ogre::Node* mNode = nullptr;
 
+        /// Possibility to do something when emitter instance is removed (like for example removing Ogre::Node).
+        EmitterInstanceRemoveListener* mEmitterInstanceRemoveListener = nullptr;
+
         float mParticleRemainder = 0.0f;
         float mFinishingParticleRemainder = 0.0f;
         float mTimeSinceStarted = 0.0f;
         float mTimeSinceStopped = 0.0f;
-
-        inline void shiftParticleArrayIndex(Ogre::uint32 indexToAdd)
-        {
-            mParticleArrayStart = (mParticleArrayStart + indexToAdd) % mEmitterParticleMaxCount;
-        }
-
-        /// If emitter is static (by static it means it have position and orientation but no Ogre::Node provided)
-        /// we may make some assumptions like create whole bucket of particles instead of few.
-        bool isStatic() const
-        {
-            return mNode == NULL;
-        }
 
         Ogre::uint32 mParticleArrayStart = 0;
 
@@ -118,6 +139,50 @@ public:
         Ogre::uint32 mEmitterParticleMaxCount = 0;
 
         std::vector<Ogre::uint32> mBucketIndexes;
+
+    public:
+
+        inline void shiftParticleArrayIndex(Ogre::uint32 indexToAdd)
+        {
+            mParticleArrayStart = (mParticleArrayStart + indexToAdd) % mEmitterParticleMaxCount;
+        }
+
+//        /// If emitter is static (by static it means it have position and orientation but no Ogre::Node provided)
+//        /// we may make some assumptions like create whole bucket of particles instead of few.
+//        bool isStatic() const
+//        {
+//            return mNode == NULL;
+//        }
+
+        /// Calls mEmitterInstanceRemoveListener and remove owned pointers.
+        void onRemove(bool isLastEmitterOfSystem) {
+            if(mEmitterInstanceRemoveListener) {
+                mEmitterInstanceRemoveListener->emitterInstanceAboutToBeRemoved(mId, mNode, mGpuParticleEmitter, isLastEmitterOfSystem);
+
+                // All emitters from system uses the same listener and node.
+                if(isLastEmitterOfSystem) {
+                    delete mEmitterInstanceRemoveListener;
+                }
+            }
+        }
+
+        bool isFinished() const { return !mRun && mParticleCount == 0; }
+
+        void restartEmitter(bool run) {
+
+            mRun = run;
+
+            // mRemoveWhenFinished won't be changed by restart.
+
+            mParticleRemainder = 0.0f;
+            mFinishingParticleRemainder = 0.0f;
+            mTimeSinceStarted = 0.0f;
+            mTimeSinceStopped = 0.0f;
+            mParticleArrayStart = 0;
+            mParticleCount = 0;
+            mParticleCreatedCount = 0;
+            mParticleAddedThisFrameCount = 0;
+        }
     };
 
     /// Debug information to display.
@@ -138,15 +203,26 @@ public:
     };
 
     struct BucketGroupData;
-    typedef std::vector<EmitterInstance> Emitters;
 
-    typedef std::vector<ParticleRenderable*> ParticleRenderableList;
+    /// Emitter list. It will be iterated each frame (by calling processTime method).
+    typedef std::vector<EmitterInstance> EmitterInstanceList;
+    EmitterInstanceList mEmitterInstances;
+
+    /// Multimap to search for elements.
+    typedef std::multimap<Ogre::uint64, int> EmitterInstanceIdToListIndex;
+    std::multimap<Ogre::uint64, int> mEmitterInstanceIdToListIndex;
 
     /// ParticleRenderable is per datablock.
+    typedef std::vector<ParticleRenderable*> ParticleRenderableList;
     ParticleRenderableList mParticleRenderables;
+
+    typedef std::vector<const GpuParticleAffector*> AffectorList;
 
 public:
 
+    /// @param affectors - affectors handled by this GpuParticleSystemWorld.
+    ///                    Also contains default values in case emitterCore have not have
+    ///                    this affector. Takes ownership. Sorted inside by property names.
     /// @param useDepthTexture - depth texture is used for particle collisions.
     /// @param compositorWorkspace - only needed when useDepthTexture == true
     /// @param depthTextureCompositorNode - only needed when useDepthTexture == true
@@ -156,6 +232,7 @@ public:
                            Ogre::SceneManager* manager,
                            Ogre::uint8 renderQueueId,
                            HlmsParticleListener* hlmsParticleListener,
+                           const std::vector<GpuParticleAffector*>& affectors,
                            bool useDepthTexture,
                            Ogre::CompositorWorkspace* compositorWorkspace = nullptr,
                            Ogre::IdString depthTextureCompositorNode = Ogre::IdString(),
@@ -197,28 +274,86 @@ public:
     bool canAdd(const std::vector<GpuParticleEmitter*>& emitters) const;
     bool canAdd(const GpuParticleSystem* particleSystem) const;
 
-    /// @param emitterNode - optional, if there is no node, offset will be used and
-    ///                      emitter will be treated as static.
+    /// @param parentNode - optional, if there is no node, offset will be used and
+    ///                     emitter won't be able to change location during its lifetime.
+    /// @param parentPos - parentNode's offset position.
+    /// @param parentRot - parentNode's offset rotation.
+    /// @param burstAutoDelete - only for burst emitters.
+    ///                          If true, emitter will remove itself after all particles died.
+    ///                          If false, emitter can be activated again by calling resume
+    ///                          (or removed by calling stop).
+    /// @param emitterInstanceRemoveListener - listener to clean up just before removing emitterInstance
+    ///                                        (for example to remove Ogre::Node). Takes ownership.
     /// @returns id
-    Ogre::uint64 start(const GpuParticleEmitter* emitterCore, Ogre::Node* emitterNode, const Ogre::Vector3& emitterPos = Ogre::Vector3::ZERO, const Ogre::Quaternion& emitterRot = Ogre::Quaternion());
+    Ogre::uint64 start(const GpuParticleEmitter* emitterCore,
+                       Ogre::Node* parentNode,
+                       const Ogre::Vector3& parentPos = Ogre::Vector3::ZERO,
+                       const Ogre::Quaternion& parentRot = Ogre::Quaternion(),
+                       bool burstAutoDelete = true,
+                       EmitterInstanceRemoveListener* emitterInstanceRemoveListener = nullptr);
 
     /// Adds multiple emitters. If there is not enough bucket, no particle emitter will be added.
     /// @param emitters - each emitter may have different offset.
     /// @param parentNode - node is the same for all added emitters
     /// @param parentPos, parentRot - they are parent of each emitter offsets. They are child transform of parentNode.
     /// @returns id - it is the same for all added emitters
-    Ogre::uint64 start(const std::vector<GpuParticleEmitter*>& emitters, Ogre::Node* parentNode = NULL, const Ogre::Vector3& parentPos = Ogre::Vector3::ZERO, const Ogre::Quaternion& parentRot = Ogre::Quaternion());
-    Ogre::uint64 start(const GpuParticleSystem* particleSystem, Ogre::Node* parentNode = NULL, const Ogre::Vector3& parentPos = Ogre::Vector3::ZERO, const Ogre::Quaternion& parentRot = Ogre::Quaternion());
+    Ogre::uint64 start(const std::vector<GpuParticleEmitter*>& emitters,
+                       Ogre::Node* parentNode = NULL,
+                       const Ogre::Vector3& parentPos = Ogre::Vector3::ZERO,
+                       const Ogre::Quaternion& parentRot = Ogre::Quaternion(),
+                       bool burstAutoDelete = true,
+                       EmitterInstanceRemoveListener* emitterInstanceRemoveListener = nullptr);
+    Ogre::uint64 start(const GpuParticleSystem* particleSystem,
+                       Ogre::Node* parentNode = NULL,
+                       const Ogre::Vector3& parentPos = Ogre::Vector3::ZERO,
+                       const Ogre::Quaternion& parentRot = Ogre::Quaternion(),
+                       bool burstAutoDelete = true,
+                       EmitterInstanceRemoveListener* emitterInstanceRemoveListener = nullptr);
 
-    /// Note that burst particles don't need this.
-    /// @param destroyAllParticles - if true, particles from emitter instance will dissapear immediately,
-    ///                              otherwise emitter just stop adding new particles.
-    void stop(Ogre::uint64 instanceId, bool destroyAllParticles);
+    /// Emitter stops producing new particles.
+    /// Note that burst particles started with burstAutoRemove = true don't need this
+    /// (except when destroyAllParticlesImmediately is needed).
+    /// @param removeEmitterWhenFinished - if true, emitter will be removed when all of its particles dies.
+    ///                                    If mRemoveWhenFinished for emitter was set to true, its value will be taken
+    ///                                    instead of removeEmitterWhenFinished.
+    ///                                    Ignored emitters will always be destroyed immediately if this param is true.
+    /// @param destroyAllParticlesImmediately - if true, particles from emitter instance will disapear immediately,
+    ///                                         otherwise emitter just stop adding new particles.
+    void stop(Ogre::uint64 instanceId,
+              bool removeEmitterWhenFinished = true,
+              bool destroyAllParticlesImmediately = false);
 
-    /// Stops all emitters (with destroying all particles)
-    void stopAll();
+    /// Stops and removes all emitters (with destroying all particles).
+    void stopAndRemoveAllImmediately();
 
+    /// Remove all alive particles and starts anew (uses the same particle buckets).
+    /// To check if emitter can be restarted without killing particles use isFinished method.
+    /// Intended for burst particles with burstAutoRemove = false.
+    /// Emitter with mRemoveWhenFinished = true cannot be restarted.
+    void restart(Ogre::uint64 instanceId);
+
+    /// Updates particle systems.
     void processTime(float elapsedTime);
+
+    /// Generally ignored emitter instance is hidden and frozen.
+    /// If true, it's particle entries won't be uploaded for creating, updating and render.
+    void setIgnoreEmitterInstance(Ogre::uint64 instanceId, bool ignore);
+    bool getIgnoreEmitterInstance(Ogre::uint64 instanceId) const;
+
+    /// @returns At least one emitter instance which is still running (regardles of number of particles alive).
+    ///          For burst mode with different emitters lifetimes there may be a situation when some but not all
+    ///          emitters are running.
+    bool isRunning(Ogre::uint64 instanceId) const;
+
+    /// @returns All emitter instances with such id are not running and they have 0 particles alive.
+    bool isFinished(Ogre::uint64 instanceId) const;
+
+    /// @returns node associated with particle systems (all emitters within system must point to the same node,
+    /// although node may be null).
+    Ogre::Node* getNode(Ogre::uint64 instanceId) const;
+
+    /// @returns if there is any emitter in GpuParticleSystemWorld with such instanceId.
+    bool exists(Ogre::uint64 instanceId) const;
 
 public:
 
@@ -234,6 +369,9 @@ public:
 
     /// Get diagnostic info like alive particle count etc. It iterate trough instances.
     Info getInfo() const;
+
+    /// Like getInfo, but it iterate only trough one particle system.
+    Info getEmitterInstanceInfo(Ogre::uint64 instanceId) const;
 
     inline int getTotalBuckets() const { return mBucketCount; }
     inline int getAvailableBuckets() const { return mAvailableBucketsStack.size(); }
@@ -268,8 +406,6 @@ private:
     Ogre::ReadOnlyBufferPacked* mParticleWorldBufferAsReadOnly = nullptr;
     float* mCpuParticleWorldBuffer = nullptr;
 
-    std::vector<EmitterInstance> mEmitterInstances;
-
     /// Emitter cores must be registered as they will be send to buffer.
     std::vector<const GpuParticleEmitter*> mRegisteredEmitterCores;
 
@@ -278,6 +414,11 @@ private:
     typedef std::map<const GpuParticleEmitter*, Ogre::uint16> GpuParticleEmitterMap;
     GpuParticleEmitterMap mRegisteredEmitterCoresSet;
 
+    std::vector<const GpuParticleAffector*> mRegisteredAffectorList;
+    /// Contains 'Ogre::IdString(mRegisteredAffectorList[k]->getAffectorProperty())' for
+    /// fast search inside GpuParticleEmitter.
+    std::vector<Ogre::IdString> mRegisteredAffectorIdStringList;
+
     /// Bucket indexes stack.
     std::vector<Ogre::uint32> mAvailableBucketsStack;
 
@@ -285,6 +426,12 @@ private:
 
     /// Depth texture is used to particle depth buffer collision.
     bool mUseDepthTexture = true;
+
+    /// Some initialization steps will be in update shader.
+    /// In case where we create whole bucket particles ahead of time,
+    /// there is no knowing where emitter will for those instances
+    /// attached to Ogre::SceneNode.
+    bool mInitLocationInUpdate = true;
 
     /// Compositor contains depth buffer needed by depth collisions.
     /// Only needed if mUseDepthTexture == true
@@ -302,14 +449,22 @@ public:
     virtual const Ogre::String& getMovableType(void) const;
 
     static const int RenderableTypeId;
-    static const int RenderableCustomParamBucketSize;
-    static const int ParticleDataStructSize;
     static const int EntryBucketDataStructSize;
     static const int EmitterInstanceDataStructSize;
-    static const int EmitterCoreDataStructSize;
     static const int ParticleWorldDataStructSize;
 
     Ogre::uint32 estimateRequiredBucketCount(const GpuParticleEmitter* emitterCore) const;
+
+    Ogre::uint32 getParticleDataStructFinalSize() const;
+    Ogre::uint32 getEmitterCoreDataStructFinalSize() const;
+
+    const AffectorList& getRegisteredAffectorList() const;
+
+    Ogre::uint16 getBucketSize() const;
+
+private:
+    static const int ParticleDataStructSize;
+    static const int EmitterCoreDataStructSize;
 
 private:
     Ogre::VaoManager* mVaoManager;
@@ -320,6 +475,9 @@ private:
     Ogre::uint16 mBucketSize;
     Ogre::uint16 mThreadsPerGroup;
     Ogre::uint16 mGroupsPerBucket;
+
+    Ogre::uint32 mParticleDataStructFinalSize;
+    Ogre::uint32 mEmitterCoreDataStructFinalSize;
 
     Ogre::HlmsComputeJob* mCreateParticlesJob = nullptr;
     Ogre::HlmsComputeJob* mUpdateParticlesJob = nullptr;
@@ -338,12 +496,7 @@ private:
     void freeUnusedBuckets(EmitterInstance& emitterInstance);
     Ogre::uint32 getBucketsForNumber(Ogre::uint32 number) const;
     void uploadToGpuEmitterCores();
-    template <class T, int Elements, int Size>
-	void uploadTrack(float *RESTRICT_ALIAS & buffer, const std::map<float, T>& track, const T& defaultStartValue);
-	void uploadVector3Track(float *RESTRICT_ALIAS & buffer, const std::map<float, Ogre::Vector3>& track);
-	void uploadVector2Track(float *RESTRICT_ALIAS & buffer, const std::map<float, Ogre::Vector2>& track);
-	void uploadFloatTrack(float *RESTRICT_ALIAS & buffer, const std::map<float, float>& track, float defaultStartValue);
-	void uploadU32ToFloatArray(float *RESTRICT_ALIAS & buffer, Ogre::uint32 value);
+
     void uploadToGpuEmitterInstances();
 	void uploadEntryBucketRow(Ogre::uint32 *RESTRICT_ALIAS & entryBucketBuffer, const BucketGroupData& bucketGroup);
     void uploadToGpuParticleWorld(float elapsedTime);
@@ -352,67 +505,37 @@ private:
 	Ogre::uint32 uploadBucketsForInstance(Ogre::uint32 *RESTRICT_ALIAS & entryBucketBuffer, size_t emitterInstanceIndex, Ogre::uint32 lastParticle, Ogre::uint32 particleCount);
 
     void emitParticleCreateGpu();
-    void emitParticleUpdateGpu(Ogre::uint32& resultEntriesCount);
+    void emitParticleUpdateGpu(const Ogre::uint32& entriesCount);
     void updateInstancesToCores();
     void destroyParticleRenderable(const Ogre::String& datablockName);
-    void stopEmitter(int instanceIndex, bool destroyAllParticles);
+
+    /// Can assert if not enough buckets.
+    void createEmitterInstance(const GpuParticleEmitter* gpuParticleEmitterCore,
+                               const Ogre::Matrix4& matParent,
+                               Ogre::Node* parentNode,
+                               Ogre::uint64 idCounter,
+                               bool burstAutoRemove,
+                               EmitterInstanceRemoveListener* emitterInstanceRemoveListener);
+
+    /// Removes i-th element then swaps last element to fill the gap. Calls EmitterInstanceRemoveListener.
+    void destroyEmitterInstance(int instanceIndex);
+
+    /// Removes all emitter instances. Calls EmitterInstanceRemoveListeners.
+    void destroyAllEmitterInstances();
 
     ParticleRenderable* getRenderableForEmitterCore(const GpuParticleEmitter* emitterCore) const;
 
+    /// Generates next unique instanceId.
     Ogre::uint64 getNextId() const;
 
     /// Uploads buckets offsets and primitive range for renderable objects.
-    void prepareForRender();
+    void prepareEntriesForUpdateAndRender(Ogre::uint32& resultEntriesCount);
+
+    /// Finds emitter instance iterator based on mEmitterInstances index.
+    EmitterInstanceIdToListIndex::iterator findEmitterInstanceIt(int listIndex);
 
     Ogre::HlmsComputeJob* getParticleCreateComputeJob();
     Ogre::HlmsComputeJob* getParticleUpdateComputeJob();
 };
-
-template<class T, int Elements, int Size>
-void GpuParticleSystemWorld::uploadTrack(float*RESTRICT_ALIAS & buffer, const std::map<float, T>& track, const T& defaultStartValue)
-{
-    // Colour track times
-    {
-        float lastTimeValue = 0.0f;
-        size_t i = 0;
-		for(typename std::map<float, T>::const_iterator it = track.begin();
-            it != track.end(); ++it, ++i) {
-            if(i >= GpuParticleEmitter::MaxTrackValues) {
-                break;
-            }
-
-            lastTimeValue = it->first;
-            *buffer++ = lastTimeValue;
-        }
-        for (; i < GpuParticleEmitter::MaxTrackValues; ++i) {
-            // add second to each next value to avoid 0-length
-            lastTimeValue += 1.0f;
-            *buffer++ = lastTimeValue;
-        }
-    }
-
-    // Colour track values
-    {
-        T lastValue = defaultStartValue;
-        size_t i = 0;
-		for(typename std::map<float, T>::const_iterator it = track.begin();
-            it != track.end(); ++it, ++i) {
-            if(i >= GpuParticleEmitter::MaxTrackValues) {
-                break;
-            }
-
-            lastValue = it->second;
-            for (int k = 0; k < Elements; ++k) {
-                *buffer++ = lastValue[k];
-            }
-        }
-        for (; i < GpuParticleEmitter::MaxTrackValues; ++i) {
-            for (int k = 0; k < Elements; ++k) {
-                *buffer++ = lastValue[k];
-            }
-        }
-    }
-}
-
 
 #endif

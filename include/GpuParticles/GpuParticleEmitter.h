@@ -10,6 +10,8 @@
 
 #include <OgreVector3.h>
 #include <OgreBillboardSet.h>
+#include <GpuParticles/Hlms/HlmsParticleDatablock.h>
+#include "GpuParticleAffector.h"
 
 /// Recipe how to create/update particles. Is tied to one datablock.
 class GpuParticleEmitter
@@ -22,41 +24,6 @@ public:
         ChangeWithTrack,
         SetWithStart
     };
-
-public:
-
-    GpuParticleEmitter();
-    float getMaxParticleLifetime() const { return mParticleLifetimeMax; }
-    Ogre::uint32 getMaxParticles() const
-    {
-        if(mBurstMode) {
-            return mBurstParticles;
-        }
-        return (Ogre::uint32)ceilf(mEmissionRate * getMaxParticleLifetime());
-    }
-
-    static const float Epsilon;
-
-    /// Emitter position offset.
-    Ogre::Vector3 mPos = Ogre::Vector3::ZERO;
-
-    /// Emitter rotatation offset.
-    Ogre::Quaternion mRot;
-
-    Ogre::String mDatablockName;
-
-    SpriteMode mSpriteMode = SpriteMode::None;
-
-    /// Optional. Used for sprite animation.
-    std::vector<Ogre::String> mSpriteNames;
-    std::vector<float> mSpriteTimes;
-    static const int MaxSprites = 8;
-    static const int MaxTrackValues = 8;
-
-    /// Used when 'mBurstMode' is true.
-    float mEmitterLifetime = 0.0f;
-    Ogre::uint32  mBurstParticles = 0;
-    bool mBurstMode = false;
 
     /// Fader takes into consideration particle lifetime
     /// which may be different for each particle.
@@ -85,12 +52,39 @@ public:
         /// Disc/Ring shape params: r1, r2 (radius range)
         Disc
     };
-    SpawnShape mSpawnShape = SpawnShape::Point;
-    Ogre::Vector3 mSpawnShapeDimensions = Ogre::Vector3::ZERO;
 
-    FaderMode mFaderMode = FaderMode::None;
-    float mParticleFaderStartTime = 0.0f;
-    float mParticleFaderEndTime = 0.0f;
+    typedef HlmsParticleDatablock::SpriteCoord SpriteCoord;
+
+    static const float Epsilon;
+
+    static Ogre::String spriteModeToStr(SpriteMode value);
+    static SpriteMode strToSpriteMode(const Ogre::String& str);
+
+    static Ogre::String faderModeToStr(FaderMode value);
+    static FaderMode strToFaderMode(const Ogre::String& str);
+
+    static Ogre::String spawnShapeToStr(SpawnShape value);
+    static SpawnShape strToSpawnShape(const Ogre::String& str);
+
+    static Ogre::String billboardTypeToStr(Ogre::v1::BillboardType value);
+    static Ogre::v1::BillboardType strToBillboardType(const Ogre::String& str);
+
+public:
+
+    GpuParticleEmitter();
+    ~GpuParticleEmitter();
+    GpuParticleEmitter(const GpuParticleEmitter& other);
+    GpuParticleEmitter& operator=(const GpuParticleEmitter& other);
+
+    float getMaxParticleLifetime() const { return mParticleLifetimeMax; }
+
+    Ogre::uint32 getMaxParticles() const
+    {
+        if(mBurstMode) {
+            return mBurstParticles;
+        }
+        return (Ogre::uint32)ceilf(mEmissionRate * getMaxParticleLifetime());
+    }
 
     void setBurst(int particles, float timeToSpawnAllParticles) {
         mBurstMode = true;
@@ -115,8 +109,41 @@ public:
     /// Is mEmitterLifetime == 0 ?
     inline bool isImmediate() const { return fabs(mEmitterLifetime) < Epsilon; }
 
+    GpuParticleEmitter* clone();
+
+public:
+
+    /// Emitter position offset.
+    Ogre::Vector3 mPos = Ogre::Vector3::ZERO;
+
+    /// Emitter rotatation offset.
+    Ogre::Quaternion mRot;
+
+    Ogre::String mDatablockName;
+
+    SpriteMode mSpriteMode = SpriteMode::None;
+
+    /// For flipbook (row, col). For atlas row = 0.
+    std::vector<SpriteCoord> mSpriteFlipbookCoords;
+    std::vector<float> mSpriteTimes;
+    static const int MaxSprites = 8;
+    static const int MaxTrackValues = 8;
+
+    /// Used when 'mBurstMode' is true.
+    float mEmitterLifetime = 0.0f;
+
     /// Particles per second
     float mEmissionRate = 1.0f;
+
+    Ogre::uint32  mBurstParticles = 0;
+    bool mBurstMode = false;
+
+    SpawnShape mSpawnShape = SpawnShape::Point;
+    Ogre::Vector3 mSpawnShapeDimensions = Ogre::Vector3::ZERO;
+
+    FaderMode mFaderMode = FaderMode::None;
+    float mParticleFaderStartTime = 0.0f;
+    float mParticleFaderEndTime = 0.0f;
 
     bool mUniformSize = true;
 
@@ -143,24 +170,18 @@ public:
     float mDirectionVelocityMin = 0.0f;
     float mDirectionVelocityMax = 1.0f;
 
-    Ogre::Vector3 mGravity = Ogre::Vector3::ZERO;
-    bool mUseDepthCollision = false;
+    typedef std::map<Ogre::String, GpuParticleAffector*> AffectorByNameMap;
+    typedef std::map<Ogre::IdString, GpuParticleAffector*> AffectorByHashMap;
+    const AffectorByNameMap& getAffectorByNameMap() const;
+    const AffectorByHashMap& getAffectorByHashMap() const;
+    const GpuParticleAffector* getAffectorNoThrow(const Ogre::String& affectorPropertyName) const;
+    const GpuParticleAffector* getAffectorByIdStringNoThrow(const Ogre::IdString& affectorPropertyNameHash) const;
+    void addAffector(GpuParticleAffector* affector);
+    void removeAndDestroyAffector(const Ogre::String& affectorPropertyName);
 
-    /// Note that only first GpuParticleEmitter::MaxTrackValues will be used.
-    bool mUseColourTrack = false;
-    typedef std::map<float, Ogre::Vector3> Vector3Track;
-    Vector3Track mColourTrack;
-
-    bool mUseAlphaTrack = false;
-    typedef std::map<float, float> FloatTrack;
-    FloatTrack mAlphaTrack;
-
-    bool mUseSizeTrack = false;
-    typedef std::map<float, Ogre::Vector2> Vector2Track;
-    Vector2Track mSizeTrack;
-
-    bool mUseVelocityTrack = false;
-    FloatTrack mVelocityTrack;
+private:
+    AffectorByNameMap mAffectorByStringMap;
+    AffectorByHashMap mAffectorByIdStringMap;
 };
 
 #endif

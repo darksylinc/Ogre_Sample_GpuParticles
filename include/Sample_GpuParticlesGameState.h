@@ -12,13 +12,15 @@ namespace Demo
 {
     class Sample_GpuParticlesGameState : public TutorialGameState
     {
-        float mTimeOfDay;
         int mEmitterInstancesCount;
         GpuParticleSystemWorld* mGpuParticleSystemWorld;
-        GpuParticleSystem* mFireParticleSystem;
-        GpuParticleSystem* mSparksParticleSystem;
+        const GpuParticleSystem* mFireParticleSystem;
+        const GpuParticleSystem* mSparksParticleSystem;
+        GpuParticleSystem* mFireManualParticleSystem;
+        GpuParticleSystem* mSparksManualParticleSystem;
         std::vector<Ogre::uint64> mFireParticleInstances;
-
+Ogre::uint64 particleInstanceId;
+        Ogre::Node* mNode = nullptr;
         Ogre::Light *mDirectionalLight;
 
         virtual void generateDebugText( float timeSinceLast, Ogre::String &outText );

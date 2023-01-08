@@ -13,11 +13,11 @@
 #include <OgreRenderQueue.h>
 
 class GpuParticleSystemWorld;
+class HlmsParticleDatablock;
+class GpuParticleAffector;
 
 class HlmsParticleListener : public Ogre::HlmsListener {
 
-    float mWindStrength{ 0.5 };
-    float mGlobalTime{ 0 };
     Ogre::Hlms* mHlms = nullptr;
     Ogre::Matrix4 mCameraVP;
     Ogre::Matrix4 mPrevCameraVP;    // Camera View * Projection from previous frame
@@ -32,13 +32,6 @@ public:
         mHlms = hlms;
     }
 
-    void setTime(float time) {
-        mGlobalTime = time;
-    }
-    void addTime(float time) {
-        mGlobalTime += time;
-    }
-
     virtual Ogre::uint32 getPassBufferSize(const Ogre::CompositorShadowNode* shadowNode,
                                            bool casterPass,
                                            bool dualParaboloid,
@@ -51,10 +44,20 @@ public:
                                      float* passBufferPtr);
     Ogre::Matrix4 getPrevCameraVP() const;
     Ogre::Vector2 getCameraProjectionAB() const;
+
+    static const Ogre::String InsertEmitterAffectors_PieceKey;
+    void generateEmitterCoreDataAffectorsCode(Ogre::String& resultPiece, const std::vector<const GpuParticleAffector*>& affectorList);
+
+    static const Ogre::String InsertParticleAffectors_PieceKey;
+    void generateParticleDataAffectorsCode(Ogre::String& resultPiece, const std::vector<const GpuParticleAffector*>& affectorList);
+
 };
 
 class HlmsParticle : public Ogre::HlmsUnlit
 {
+public:
+    static const Ogre::HlmsTypes ParticleHlmsType = Ogre::HLMS_USER0;
+
 private:
 
     HlmsParticleListener mParticleListener;
@@ -65,7 +68,7 @@ private:
 
 public:
     HlmsParticle(Ogre::Archive* dataFolder, Ogre::ArchiveVec* libraryFolders)
-        : Ogre::HlmsUnlit(dataFolder, libraryFolders, Ogre::HLMS_USER0, "particle")
+        : Ogre::HlmsUnlit(dataFolder, libraryFolders, ParticleHlmsType, "particle")
     {
         setListener(&mParticleListener);
         mParticleListener.setHlms(this);
@@ -88,7 +91,7 @@ public:
         setTextureReg(Ogre::VertexShader, "texParticleData", ParticleDataTexSlot);
     }
 
-    static void getAdditionalDefaultPaths(Ogre::String &outDataFolderPath, Ogre::StringVector& outLibraryFoldersPaths) {
+    static void getAdditionalDefaultPaths(Ogre::String &outDataFolderPath, Ogre::StringVector& outLibraryFoldersPaths, bool withHlmsPathPrefix = true) {
 
         //We need to know what RenderSystem is currently in use, as the
         //name of the compatible shading language is part of the path
@@ -99,18 +102,24 @@ public:
         else if (renderSystem->getName() == "Metal Rendering Subsystem")
             shaderSyntax = "Metal";
 
+        Ogre::String prefix;
+        if(withHlmsPathPrefix) {
+            prefix = "Hlms/";
+        }
 
         //Fill the library folder paths with the relevant folders
         outLibraryFoldersPaths.clear();
-//        outLibraryFoldersPaths.push_back("Hlms/Particle/" + shaderSyntax);
-        outLibraryFoldersPaths.push_back("Hlms/Particle/Any");
-        outLibraryFoldersPaths.push_back("Hlms/Compute");
+//        outLibraryFoldersPaths.push_back(prefix + "Particle/" + shaderSyntax);
+        outLibraryFoldersPaths.push_back(prefix + "Particle/Any");
+        outLibraryFoldersPaths.push_back(prefix + "Compute");
 
         //Fill the data folder path
-        outDataFolderPath = "Hlms/Particle/" + shaderSyntax;
+        outDataFolderPath = prefix + "Particle/" + shaderSyntax;
     }
 
-    static HlmsParticle* registerHlms(const Ogre::String& rootHlmsFolder, const Ogre::String& particleRootHlmsFolder);
+    static HlmsParticle* registerHlms(const Ogre::String& rootHlmsFolder,
+                                      const Ogre::String& particleRootHlmsFolder,
+                                      bool withHlmsPathPrefix = true);
 
     //-----------------------------------------------------------------------------------
     Ogre::uint32 fillBuffersForV2(const Ogre::HlmsCache* cache,
@@ -125,6 +134,8 @@ public:
                                                       const Ogre::HlmsMacroblock *macroblock,
                                                       const Ogre::HlmsBlendblock *blendblock,
                                                       const Ogre::HlmsParamVec &paramVec ) override;
+
+    HlmsParticleDatablock* cloneFromUnlitDatablock(const Ogre::HlmsUnlitDatablock* srcDatablock, const Ogre::String& name);
 
 #if !OGRE_NO_JSON
     /// @copydoc Hlms::_loadJson
