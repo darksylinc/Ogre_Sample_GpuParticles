@@ -2,24 +2,24 @@
 @piece( custom_vs_uniformDeclaration )
 
 @property( syntax == glsl )
-	#define ogre_T11 binding = 11
-	#define ogre_T12 binding = 12
-	#define ogre_T13 binding = 13
-	#define ogre_T14 binding = 14
+	#define ogre_R2 binding = 2
+	#define ogre_R3 binding = 3
+	#define ogre_R4 binding = 4
+	#define ogre_R5 binding = 5
 @end
 
 @property(particleWorldEnabled)
 	@insertpiece(ParticleWorldStructures)
 
-	layout(std430, ogre_T14) readonly restrict buffer particleDataListBuf
+	layout(std430, ogre_R5) readonly restrict buffer particleDataListBuf
 	{
 		Particle particleDataList[];
 	};
-	layout(std430, ogre_T11) readonly restrict buffer emitterCoreDataBuf
+	layout(std430, ogre_R2) readonly restrict buffer emitterCoreDataBuf
 	{
 		EmitterCoreData emitterCoreData[];
 	};
-	layout(std430, ogre_T12) readonly restrict buffer bucketGroupDataBuf
+	layout(std430, ogre_R3) readonly restrict buffer bucketGroupDataBuf
 	{
 		BucketGroup bucketGroupData[];
 	};
@@ -45,7 +45,7 @@
 	};
 
 
-	layout(std430, ogre_T14) readonly restrict buffer particleDataListBuf
+	layout(std430, ogre_R5) readonly restrict buffer particleDataListBuf
 	{
 		Particle particleDataList[];
 	};
@@ -66,7 +66,7 @@
 	};
 
 
-	layout(std430, ogre_T13) readonly restrict buffer emitterInstanceDataBuf
+	layout(std430, ogre_R4) readonly restrict buffer emitterInstanceDataBuf
 	{
 		EmitterInstanceData emitterInstanceData[];
 	};

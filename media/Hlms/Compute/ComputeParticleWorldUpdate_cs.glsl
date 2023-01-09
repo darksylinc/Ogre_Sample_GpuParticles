@@ -5,10 +5,10 @@
 
 @property( syntax == glsl )
     #define ogre_U0 binding = 0
-    #define ogre_T0 binding = 1
-    #define ogre_T1 binding = 2
-    #define ogre_T2 binding = 3
-    #define ogre_T3 binding = 4
+    #define ogre_R0 binding = 1
+    #define ogre_R1 binding = 2
+    #define ogre_R2 binding = 3
+    #define ogre_R3 binding = 4
 @end
 
 layout(std430, ogre_U0) /*writeonly ?*/ restrict buffer particleDataListBuf
@@ -16,21 +16,21 @@ layout(std430, ogre_U0) /*writeonly ?*/ restrict buffer particleDataListBuf
     Particle particleDataList[];
 };
 
-layout(std430, ogre_T0) readonly restrict buffer emitterCoreDataBuf
+layout(std430, ogre_R0) readonly restrict buffer emitterCoreDataBuf
 {
     EmitterCoreData emitterCoreData[];
 };
 // InstanceData should come as Const buffer: emitter location matrix -
 // those values changes per turn, but won't be modified here.
-layout(std430, ogre_T1) readonly restrict buffer emitterInstanceDataBuf
+layout(std430, ogre_R1) readonly restrict buffer emitterInstanceDataBuf
 {
     EmitterInstanceData emitterInstanceData[];
 };
-layout(std430, ogre_T2) readonly restrict buffer bucketGroupDataBuf
+layout(std430, ogre_R2) readonly restrict buffer bucketGroupDataBuf
 {
     BucketGroup bucketGroupData[];
 };
-layout(std430, ogre_T3) readonly restrict buffer particleWorldBuf
+layout(std430, ogre_R3) readonly restrict buffer particleWorldBuf
 {
     ParticleWorld particleWorld[];
 };
@@ -40,8 +40,10 @@ layout(std430, ogre_T3) readonly restrict buffer particleWorldBuf
     vulkan( layout( ogre_s4 ) uniform sampler depthSamplerState );
 @end
 
-uniform uint BucketSize;
-uniform uint MaxParticles;
+vulkan( layout( ogre_P0 ) uniform Params { )
+    uniform uint BucketSize;
+    uniform uint MaxParticles;
+vulkan( }; )
 
 #define world particleWorld[0]
 

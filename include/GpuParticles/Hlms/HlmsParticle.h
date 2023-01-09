@@ -61,10 +61,10 @@ public:
 private:
 
     HlmsParticleListener mParticleListener;
-    static const int ParticleDataTexSlot = 14;
-    static const int BucketGroupDataTexSlot = 12;
-    static const int EmitterDataTexSlot = 13; // deprecated
-    static const int EmitterCoreDataTexSlot = 11;
+    static const int ParticleDataTexSlot = 5;
+    static const int BucketGroupDataTexSlot = 3;
+    static const int EmitterDataTexSlot = 4; // deprecated
+    static const int EmitterCoreDataTexSlot = 2;
 
 public:
     HlmsParticle(Ogre::Archive* dataFolder, Ogre::ArchiveVec* libraryFolders)
@@ -73,14 +73,18 @@ public:
         setListener(&mParticleListener);
         mParticleListener.setHlms(this);
 
+        mTexUnitSlotStart = 6u;
+        mSamplerUnitSlotStart = 6u;
+
 //        mReservedTexSlots = 2u;
     }
 
-    virtual ~HlmsParticle() = default;
+    ~HlmsParticle() override = default;
 
-    virtual Ogre::HlmsCache preparePassHash( const Ogre::CompositorShadowNode *shadowNode,
-                                             bool casterPass, bool dualParaboloid,
-                                             Ogre::SceneManager *sceneManager ) override;
+    void setupRootLayout( Ogre::RootLayout &rootLayout ) override;
+
+    Ogre::HlmsCache preparePassHash( const Ogre::CompositorShadowNode *shadowNode, bool casterPass,
+                                     bool dualParaboloid, Ogre::SceneManager *sceneManager ) override;
 
     void calculateHashForPreCreate(Ogre::Renderable* renderable, Ogre::PiecesMap* inOutPieces) override;
 

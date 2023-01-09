@@ -14,6 +14,7 @@
 #include <OgreHlmsManager.h>
 #include <OgreCamera.h>
 #include <OgreHlms.h>
+#include <OgreRootLayout.h>
 
 #include "GpuParticles/GpuParticleSystemWorld.h"
 
@@ -113,6 +114,14 @@ float* HlmsParticleListener::preparePassBuffer(const Ogre::CompositorShadowNode*
 HlmsParticleListener* HlmsParticle::getParticleListener()
 {
     return &mParticleListener;
+}
+
+void HlmsParticle::setupRootLayout( Ogre::RootLayout &rootLayout )
+{
+    HlmsUnlit::setupRootLayout( rootLayout );
+
+    Ogre::DescBindingRange *descBindingRanges = rootLayout.mDescBindingRanges[0];
+    descBindingRanges[Ogre::DescBindingTypes::ReadOnlyBuffer].end = 6u;
 }
 
 Ogre::HlmsCache HlmsParticle::preparePassHash(const Ogre::CompositorShadowNode* shadowNode, bool casterPass, bool dualParaboloid, Ogre::SceneManager* sceneManager)
