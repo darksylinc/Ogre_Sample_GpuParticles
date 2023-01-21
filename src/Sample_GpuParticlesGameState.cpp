@@ -117,8 +117,8 @@ namespace Demo
     //        mGpuParticleSystemWorld->init(4096, 64, 256, 64, 64);
 //            mGpuParticleSystemWorld->init(32768, 256, 256, 64, 64);
 //            mGpuParticleSystemWorld->init(131072, 1024, 256, 64, 64);
-//            mGpuParticleSystemWorld->init(524288, 4096, 256, 64, 64);
-            mGpuParticleSystemWorld->init(2097152, 16384, 256, 64, 64);
+            mGpuParticleSystemWorld->init(524288, 4096, 256, 64, 64);
+//            mGpuParticleSystemWorld->init(2097152, 16384, 16, 64, 64);
 
 
             Ogre::SceneNode *sceneNode = sceneManager->getRootSceneNode( Ogre::SCENE_DYNAMIC )->

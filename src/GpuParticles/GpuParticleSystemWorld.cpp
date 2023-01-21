@@ -65,19 +65,26 @@ struct GpuParticleSystemWorld::BucketGroupData
 const int GpuParticleSystemWorld::ParticleDataStructSize =
         sizeof(float) * 3u +  // Position x, y, z
         sizeof(float) +       // Rotate sprite
+
         sizeof(float) * 4u +  // Colour r, g, b, a
+
         sizeof(float) * 2u +  // Size x, y;
         sizeof(float) +       // Sprite percentage: ceil is taken as result and is casted to uint
                               // (it is easier to interpolate that way).
         sizeof(float) +       // lifetime;
-        sizeof(float) +       // maxLifetime;
+
         sizeof(float) * 3u +  // direction x, y, z
+        sizeof(float) +       // maxLifetime;
+
+        sizeof(float) * 3u +  // Padding
         sizeof(float);        // float dirVelocity;
+
 
 const int GpuParticleSystemWorld::EntryBucketDataStructSize = sizeof(Ogre::uint32) * 5u;
 
 const int GpuParticleSystemWorld::EmitterInstanceDataStructSize =
         sizeof(float) * 16u +       // Emitter location matrix
+        sizeof(float) * 3u +        // Padding
         sizeof(Ogre::uint32) * 1u;  // run (bool)
 
 
@@ -86,19 +93,26 @@ const int GpuParticleSystemWorld::EmitterCoreDataStructSize =
         sizeof(float) * 4u +            // Size range
         sizeof(float) * 2u +            // Spot angle range
         sizeof(float) * 2u +            // Direction velocity range
+
         sizeof(float) * 2u +            // Lifetime range
         sizeof(float) * 1u +            // nextParticleSpawnTime
         sizeof(Ogre::uint32) * 1u +     // mGenerateRandomSpriteRange (upper possible index value).
-        sizeof(Ogre::uint32) * 1u +     // mUseSpriteTrack (bool)
+
         sizeof(float) * 8u +            // Sprite track times (tresholds, when new sprite is used)
         sizeof(float) * 4u * 8u +       // Sprite texture coordinate ranges (for eight slots array)
+
+        sizeof(Ogre::uint32) * 1u +     // mUseSpriteTrack (bool)
         sizeof(Ogre::uint32) * 1u +     // mUseFader (bool) (fader may be for alpha only or for all colour)
         sizeof(float) * 1u +            // mFaderStartPhaseTime (start phase of particle for fader)
         sizeof(float) * 1u +            // mFaderEndPhaseTime (last 'mFaderEndPhaseTime' seconds of particle life for fader)
+
+        sizeof(float) * 3u +            // Spawn shape params (like box dimensions)
+        sizeof(Ogre::uint32) * 1u +     // Spawn shape
+
         sizeof(Ogre::uint32) * 1u +     // isUniformSize (bool)
         sizeof(Ogre::uint32) * 1u +     // billboardType (Ogre::v1::BillboardType)
-        sizeof(Ogre::uint32) * 1u +     // Spawn shape
-        sizeof(float) * 3u;             // Spawn shape params (like box dimensions)
+        sizeof(float) * 2u;             // Core padding
+
 
 const int GpuParticleSystemWorld::ParticleWorldDataStructSize =
         sizeof(float) * 16u +       // camera prev View * Projection
@@ -1354,7 +1368,6 @@ void GpuParticleSystemWorld::uploadToGpuEmitterCores()
 
         Ogre::uint32 spriteCount = std::min<Ogre::uint32>(emitterCore->mSpriteFlipbookCoords.size(), GpuParticleEmitter::MaxSprites);
         GpuParticleAffectorCommon::uploadU32ToFloatArray(buffer, emitterCore->mSpriteMode == GpuParticleEmitter::SpriteMode::SetWithStart ? (Ogre::uint32)spriteCount : (Ogre::uint32)0);
-        GpuParticleAffectorCommon::uploadU32ToFloatArray(buffer, (Ogre::uint32) (emitterCore->mSpriteMode == GpuParticleEmitter::SpriteMode::ChangeWithTrack) );
 
         float lastTimeValue = 0.0f;
         for (size_t i = 0; i < GpuParticleEmitter::MaxSprites; ++i) {
@@ -1394,6 +1407,8 @@ void GpuParticleSystemWorld::uploadToGpuEmitterCores()
             *buffer++ = texCoordSize.y;
         }
 
+        GpuParticleAffectorCommon::uploadU32ToFloatArray(buffer, (Ogre::uint32) (emitterCore->mSpriteMode == GpuParticleEmitter::SpriteMode::ChangeWithTrack) );
+
         GpuParticleAffectorCommon::uploadU32ToFloatArray(buffer, (Ogre::uint32) emitterCore->mFaderMode);
         *buffer++ = emitterCore->mParticleFaderStartTime;
         *buffer++ = emitterCore->mParticleFaderEndTime;
@@ -1407,14 +1422,18 @@ void GpuParticleSystemWorld::uploadToGpuEmitterCores()
         //            *AS_U32PTR( buffer ) = spriteIndex;      ++buffer;
         //        }
 
+        *buffer++ = emitterCore->mSpawnShapeDimensions.x;
+        *buffer++ = emitterCore->mSpawnShapeDimensions.y;
+        *buffer++ = emitterCore->mSpawnShapeDimensions.z;
+        GpuParticleAffectorCommon::uploadU32ToFloatArray(buffer, (Ogre::uint32)emitterCore->mSpawnShape);
+
         // different size
         GpuParticleAffectorCommon::uploadU32ToFloatArray(buffer, emitterCore->mUniformSize ? 1u : 0u);
         GpuParticleAffectorCommon::uploadU32ToFloatArray(buffer, (Ogre::uint32)emitterCore->mBillboardType);
 
-        GpuParticleAffectorCommon::uploadU32ToFloatArray(buffer, (Ogre::uint32)emitterCore->mSpawnShape);
-        *buffer++ = emitterCore->mSpawnShapeDimensions.x;
-        *buffer++ = emitterCore->mSpawnShapeDimensions.y;
-        *buffer++ = emitterCore->mSpawnShapeDimensions.z;
+        // padding
+        *buffer++ = 0.0f;
+        *buffer++ = 0.0f;
 
         const GpuParticleEmitter::AffectorByHashMap& affectorMap = emitterCore->getAffectorByHashMap();
         for (size_t i = 0; i < mRegisteredAffectorList.size(); ++i) {
@@ -1473,6 +1492,11 @@ void GpuParticleSystemWorld::uploadToGpuEmitterInstances()
         for (int j = 0; j < 16; ++j) {
             *emitterInstanceBuffer++ = (float)mat[0][j];
         }
+
+        // Padding
+        *emitterInstanceBuffer++ = 0.0f;
+        *emitterInstanceBuffer++ = 0.0f;
+        *emitterInstanceBuffer++ = 0.0f;
 
 #define AS_U32PTR( x ) reinterpret_cast<uint32*RESTRICT_ALIAS>(x)
 

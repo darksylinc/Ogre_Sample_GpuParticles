@@ -32,6 +32,20 @@ float NumberGenerator_generate( inout NumberGenerator rng )
         offset = mid+1;                                          \
     }
     
+#define BINARY_SEARCH_ITERATION_FLOAT_PACKED_IN_FLOAT4(offset, size, mid, value, track) \
+    size = (size-1)/2;                                                                  \
+    mid = offset + size;                                                                \
+    if(value >= track[mid/4][mid%4]) {                                                           \
+        offset = mid+1;                                                                 \
+    }
+    
+#define BINARY_SEARCH_ITERATION_FLOAT4(offset, size, mid, value, track)   \
+    size = (size-1)/2;                                                    \
+    mid = offset + size;                                                  \
+    if(value >= track[mid].w) {                                           \
+        offset = mid+1;                                                   \
+    }
+    
 // #define BINARY_SEARCH_ITERATION(left, right, mid, value, track)
 //     if(value >= track[mid]) {
 //         left = mid;
@@ -54,6 +68,34 @@ uint binarySearch8(float value, float track[8])
 
     return offset;
 }
+
+//uint binarySearch8Float4(float value, float4 track[8])
+//{
+//    uint offset = 1;
+//    uint size = 7;
+//    uint mid;
+//    BINARY_SEARCH_ITERATION_FLOAT4(offset, size, mid, value, track)
+//    BINARY_SEARCH_ITERATION_FLOAT4(offset, size, mid, value, track)
+//    if(value < track[offset].w) {
+//        --offset;
+//    }
+//
+//    return offset;
+//}
+//
+//uint binarySearch8FloatPackedInFloat4(float value, float4 track[2])
+//{
+//    uint offset = 1;
+//    uint size = 7;
+//    uint mid;
+//    BINARY_SEARCH_ITERATION_FLOAT_PACKED_IN_FLOAT4(offset, size, mid, value, track)
+//    BINARY_SEARCH_ITERATION_FLOAT_PACKED_IN_FLOAT4(offset, size, mid, value, track)
+//    if(value < track[offset/4][offset%4]) {
+//        --offset;
+//    }
+//
+//    return offset;
+//}
 
 float getFromTrack1(float time, float times[8], float values[8])
 {
@@ -110,12 +152,17 @@ float3 getFromTrack3(float time, float times[8], float3 values[8])
 struct Particle {
     float3 pos;
     float rot;
+    
     float4 colour;
+    
     float2 size;
     float spriteNumber;
     float lifetime;
-    float maxLifetime;
+    
     float3 dir;
+    float maxLifetime;
+    
+    float3 corePadding;
     float dirVelocity;
     
     @insertpiece(insert_particle_affectors)
@@ -139,23 +186,31 @@ struct BucketGroup
 struct EmitterCoreData {
     float4 colourA;
     float4 colourB;
+    
     float2 sizeX;
     float2 sizeY;
+    
     float2 spotAngle;
     float2 directionVelocity;
+    
     float2 lifetime;
     float nextParticleSpawnTime;
     uint spriteRange;
-    uint useSpriteTrack;
+    
     float spriteTrackTimes[8];
     float4 spriteCoordRange[8];
+    
+    uint useSpriteTrack;
     uint useFader;
     float faderStartPhaseTime;
     float faderEndPhaseTime;
+    
+    float3 spawnShapeDimensions;
+    uint spawnShape;
+    
     uint uniformSize;
     uint billboardType;
-    uint spawnShape;
-    float3 spawnShapeDimensions;
+    float2 corePadding;
     
     @insertpiece(insert_emitter_affectors)
 };
@@ -171,6 +226,7 @@ STATIC const uint BillboardType_OrientedSelf = 2;
 
 struct EmitterInstanceData {
     float4x4 emitterLocation;
+    float3 padding;
     uint run;
 };
 
@@ -194,27 +250,33 @@ struct ParticleWorld {
 
 @piece(affector_global_gravity_emitter)
     float3 affectorGlobalGravity;
+    float affectorGlobalGravityPadding;
 @end
 @piece(affector_set_colour_track_emitter)
+    float3 affectorSetColourTrackPadding;
     uint   affectorSetColourTrackEnabled;
     float  affectorSetColourTrackTimes[8];
     float3 affectorSetColourTrackValues[8];
 @end
 @piece(affector_set_alpha_track_emitter)
+    float3 affectorSetAlphaTrackPadding;
     uint  affectorSetAlphaTrackEnabled;
     float affectorSetAlphaTrackTimes[8];
     float affectorSetAlphaTrackValues[8];
 @end
 @piece(affector_set_size_track_emitter)
+    float3 affectorSetSizeTrackPadding;
     uint   affectorSetSizeTrackEnabled;
     float  affectorSetSizeTrackTimes[8];
     float2 affectorSetSizeTrackValues[8];
 @end
 @piece(affector_set_velocity_track_emitter)
+    float3 affectorSetVelocityTrackPadding;
     uint  affectorSetVelocityTrackEnabled;
     float affectorSetVelocityTrackTimes[8];
     float affectorSetVelocityTrackValues[8];
 @end
 @piece(affector_depth_collision_emitter)
+    float3 affectorDepthCollisionPadding;
     uint affectorDepthCollisionEnabled;
 @end
