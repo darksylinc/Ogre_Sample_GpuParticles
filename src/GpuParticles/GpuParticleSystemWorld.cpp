@@ -21,8 +21,8 @@
 #include <OgreHlmsCompute.h>
 #include <OgreHlmsComputeJob.h>
 
-#include <OgreCompositorNode.h>
-#include <OgreCompositorWorkspace.h>
+#include <Compositor/OgreCompositorNode.h>
+#include <Compositor/OgreCompositorWorkspace.h>
 #include <OgreImage2.h>
 
 #include <OgreLogManager.h>
@@ -1302,7 +1302,7 @@ void GpuParticleSystemWorld::uploadToGpuEmitterCores()
 {
 #define AS_U32PTR( x ) reinterpret_cast<uint32*RESTRICT_ALIAS>(x)
 
-    float * RESTRICT_ALIAS buffer = reinterpret_cast<float*>( mCpuEmitterCoreBuffer );
+	float * RESTRICT_ALIAS buffer = reinterpret_cast<float*RESTRICT_ALIAS >( mCpuEmitterCoreBuffer );
     const float *bufferStart = buffer;
 
     for (size_t i = 0; i < mRegisteredEmitterCores.size(); ++i) {
@@ -1494,7 +1494,7 @@ void GpuParticleSystemWorld::uploadToGpuEmitterInstances()
 
 }
 
-void GpuParticleSystemWorld::uploadEntryBucketRow(Ogre::uint32*& RESTRICT_ALIAS entryBucketBuffer, const GpuParticleSystemWorld::BucketGroupData& bucketGroup)
+void GpuParticleSystemWorld::uploadEntryBucketRow(Ogre::uint32*RESTRICT_ALIAS & entryBucketBuffer, const GpuParticleSystemWorld::BucketGroupData& bucketGroup)
 {
     //    *entryBucketBuffer++ = bucketGroup.bucketId;
     *entryBucketBuffer++ = bucketGroup.emitterInstanceId;
@@ -1550,7 +1550,7 @@ void GpuParticleSystemWorld::uploadToGpuParticleWorld(float elapsedTime)
 
 }
 
-uint32 GpuParticleSystemWorld::uploadBucketsForInstance(Ogre::uint32 *& RESTRICT_ALIAS entryBucketBuffer, size_t emitterInstanceIndex)
+uint32 GpuParticleSystemWorld::uploadBucketsForInstance(Ogre::uint32 *RESTRICT_ALIAS & entryBucketBuffer, size_t emitterInstanceIndex)
 {
     EmitterInstance& emitterInstance = mEmitterInstances[emitterInstanceIndex];
     Ogre::uint32 particleCount = emitterInstance.mParticleCount + emitterInstance.mParticleAddedThisFrameCount;
@@ -1565,7 +1565,7 @@ uint32 GpuParticleSystemWorld::uploadBucketsForInstance(Ogre::uint32 *& RESTRICT
     return uploadBucketsForInstance(entryBucketBuffer, emitterInstanceIndex, lastParticle, particleCount);
 }
 
-uint32 GpuParticleSystemWorld::uploadBucketsForInstance(uint32*& entryBucketBuffer, size_t emitterInstanceIndex, uint32 lastParticle, uint32 particleCount)
+uint32 GpuParticleSystemWorld::uploadBucketsForInstance(uint32*RESTRICT_ALIAS & entryBucketBuffer, size_t emitterInstanceIndex, uint32 lastParticle, uint32 particleCount)
 {
     Ogre::uint32 instanceEntriesCount = 0;
     EmitterInstance& emitterInstance = mEmitterInstances[emitterInstanceIndex];
@@ -1633,7 +1633,7 @@ void GpuParticleSystemWorld::emitParticleCreateGpu()
     // upload bucketGroup for particles to add
     Ogre::uint32 entriesCount = 0;
     {
-        Ogre::uint32 * RESTRICT_ALIAS entryBucketBuffer = reinterpret_cast<Ogre::uint32*>( mCpuEntryBucketBuffer );
+		Ogre::uint32 * RESTRICT_ALIAS entryBucketBuffer = reinterpret_cast<Ogre::uint32*RESTRICT_ALIAS >( mCpuEntryBucketBuffer );
         const Ogre::uint32 *entryBucketBufferStart = entryBucketBuffer;
 
         // upload bucketGroup for existing particles
@@ -1970,12 +1970,16 @@ HlmsComputeJob* GpuParticleSystemWorld::getParticleCreateComputeJob()
     {
         Ogre::HlmsCompute* hlmsCompute = Root::getSingleton().getHlmsManager()->getComputeHlms();
         Ogre::StringVector pieceFiles;
+        pieceFiles.push_back("CrossPlatformSettings_piece_all");
         pieceFiles.push_back("ComputeParticleWorld_piece_all.any");
-        job = hlmsCompute->createComputeJob("HlmsParticle/ParticleWorldCreate", "HlmsParticle/ParticleWorldCreate", "ComputeParticleWorldCreate_cs", pieceFiles);
-        job->setThreadsPerGroup(64, 1, 1);
+        job = hlmsCompute->createComputeJob( "HlmsParticle/ParticleWorldCreate",
+                                             "HlmsParticle/ParticleWorldCreate",
+                                             "ComputeParticleWorldCreate_cs", pieceFiles );
+        job->setThreadsPerGroup( 64, 1, 1 );
         job->setInformHlmsOfTextureData(false);
         job->setNumUavUnits(1);
         job->setNumTexUnits(4);
+        job->setGlTexSlotStart( 1u );
         if(mInitLocationInUpdate) {
             job->setProperty(Ogre::IdString("initLocationInUpdate"), 1);
         }
@@ -2001,6 +2005,7 @@ HlmsComputeJob* GpuParticleSystemWorld::getParticleUpdateComputeJob()
     {
         Ogre::HlmsCompute* hlmsCompute = Root::getSingleton().getHlmsManager()->getComputeHlms();
         Ogre::StringVector pieceFiles;
+        pieceFiles.push_back("CrossPlatformSettings_piece_all");
         pieceFiles.push_back("ComputeParticleWorld_piece_all.any");
         job = hlmsCompute->createComputeJob("HlmsParticle/ParticleWorldUpdate", "HlmsParticle/ParticleWorldUpdate", "ComputeParticleWorldUpdate_cs", pieceFiles);
         job->setThreadsPerGroup(64, 1, 1);
@@ -2011,6 +2016,7 @@ HlmsComputeJob* GpuParticleSystemWorld::getParticleUpdateComputeJob()
         //        job->setNumThreadGroupsBasedOn(HlmsComputeJob::ThreadGroupsBasedOnUav, ComputeSimulationParticleUavSlot, 1, 1, 1);
         job->setInformHlmsOfTextureData(false);
         job->setNumUavUnits(1);
+        job->setGlTexSlotStart(1u);
         //        job->setNumTexUnits(4);
 
         int texUnits = 4;

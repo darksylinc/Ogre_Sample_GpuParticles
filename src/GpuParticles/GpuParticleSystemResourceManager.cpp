@@ -5,7 +5,7 @@
  *
  */
 
-#include <GpuParticles/GpuParticleSystemResourceManager.h>
+#include "GpuParticles/GpuParticleSystemResourceManager.h"
 #include <OgreException.h>
 #include <OgreId.h>
 #include <OgreStringConverter.h>

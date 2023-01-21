@@ -29,7 +29,7 @@ namespace rapidjson
 
 #endif
 
-class GpuParticleAffector : public Ogre::FXAlloc
+class GpuParticleAffector
 {
 public:
     GpuParticleAffector();

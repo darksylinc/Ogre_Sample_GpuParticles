@@ -4,9 +4,9 @@
 @property(particleWorldEnabled)
 @insertpiece(ParticleWorldStructures)
 
-StructuredBuffer<Particle> particleDataList : register(t14);
-StructuredBuffer<EmitterCoreData> emitterCoreData : register(t11);
-StructuredBuffer<BucketGroup> bucketGroupData : register(t12);
+StructuredBuffer<Particle> particleDataList : register(t5);
+StructuredBuffer<EmitterCoreData> emitterCoreData : register(t2);
+StructuredBuffer<BucketGroup> bucketGroupData : register(t3);
 
 static const float2 QuadCorners[] = {
 	float2(0, 0),
@@ -26,7 +26,7 @@ float spriteNumber;
 // float anything;
 };
 
-StructuredBuffer<Particle> particleDataList : register(t14);
+StructuredBuffer<Particle> particleDataList : register(t5);
 
 struct EmitterInstanceData {
     float4x4 emitterLocation;
@@ -43,7 +43,7 @@ struct EmitterInstanceData {
     uint randomIteration;
 };
 
-StructuredBuffer<EmitterInstanceData> emitterInstanceData : register(t13);
+StructuredBuffer<EmitterInstanceData> emitterInstanceData : register(t4);
 
 static const float2 QuadCorners[] = {
 	float2(0, 0),
