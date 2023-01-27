@@ -48,9 +48,12 @@
 	// 	);
 	// cornerPos = mul(cornerPos, rot);
     
-	float3 cameraRight = mul( float3( 1, 0, 0 ), toFloat3x3(passBuf.particleCameraViewMatrix) );
-	float3 cameraUp = mul( float3( 0, 1, 0 ), toFloat3x3(passBuf.particleCameraViewMatrix) );
-	float3 cameraFront = mul( float3( 0, 0, -1 ), toFloat3x3(passBuf.particleCameraViewMatrix) );
+    float4x4 pCam = transpose(passBuf.particleCameraViewMatrix);
+    float3x3 pCam3x3 = toFloat3x3(pCam);
+    
+	float3 cameraRight = mul( float3( 1, 0, 0 ), pCam3x3 );
+	float3 cameraUp = mul( float3( 0, 1, 0 ), pCam3x3 );
+	float3 cameraFront = mul( float3( 0, 0, -1 ), pCam3x3 );
     
     // like in OgreBillboardSet Ogre::BBT_POINT not accurate facing
     float3 pX = cameraRight;
