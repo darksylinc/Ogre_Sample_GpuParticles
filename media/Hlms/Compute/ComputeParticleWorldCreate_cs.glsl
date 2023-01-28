@@ -176,7 +176,7 @@ void main()
     particle.rot = 0.0;
     float sizeX = lerp(emitterCore.sizeX.x, emitterCore.sizeX.y, NumberGenerator_generate( random ));
     float sizeY = sizeX;
-    if(emitterCore.uniformSize != 0u) {
+    if(emitterCore.uniformSize == 0u) {
         sizeY = lerp(emitterCore.sizeY.x, emitterCore.sizeY.y, NumberGenerator_generate( random ));
     }
     particle.size = float2(sizeX, sizeY);
