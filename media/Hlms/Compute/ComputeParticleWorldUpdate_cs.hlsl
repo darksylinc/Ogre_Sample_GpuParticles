@@ -172,7 +172,7 @@ void main
     
 @property(affector_set_colour_track)
     if(emitterCore.affectorSetColourTrackEnabled) {
-        particle.colour.xyz = getFromTrack3(particle.lifetime, emitterCore.affectorSetColourTrackTimes, emitterCore.affectorSetColourTrackValues);
+        particle.colour.xyz = getFromTrack3(particle.lifetime, emitterCore.affectorSetColourTrackTimes, emitterCore.affectorSetColourTrackValuesR, emitterCore.affectorSetColourTrackValuesG, emitterCore.affectorSetColourTrackValuesB);
     }
 @end
 @property(affector_set_alpha_track)
@@ -182,7 +182,7 @@ void main
 @end
 @property(affector_set_size_track)
     if(emitterCore.affectorSetSizeTrackEnabled) {
-        particle.size = getFromTrack2(particle.lifetime, emitterCore.affectorSetSizeTrackTimes, emitterCore.affectorSetSizeTrackValues);
+        particle.size = getFromTrack2(particle.lifetime, emitterCore.affectorSetSizeTrackTimes, emitterCore.affectorSetSizeTrackValuesX, emitterCore.affectorSetSizeTrackValuesY);
         if(emitterCore.uniformSize) {
             particle.size.y = particle.size.x;
         }

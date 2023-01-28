@@ -69,8 +69,9 @@ void GpuParticleAffectorCommon::uploadTrack( float *RESTRICT_ALIAS &buffer,
     }
 
     // Track values
+    T lastValue = defaultStartValue;
+    for( int k = 0; k < Elements; ++k )
     {
-        T lastValue = defaultStartValue;
         size_t i = 0;
         for( typename std::map<float, T>::const_iterator it = track.begin(); it != track.end();
              ++it, ++i )
@@ -80,18 +81,12 @@ void GpuParticleAffectorCommon::uploadTrack( float *RESTRICT_ALIAS &buffer,
                 break;
             }
 
-            lastValue = it->second;
-            for( int k = 0; k < Elements; ++k )
-            {
-                *buffer++ = lastValue[k];
-            }
+            lastValue[k] = it->second[k];
+            *buffer++ = lastValue[k];
         }
         for( ; i < Size; ++i )
         {
-            for( int k = 0; k < Elements; ++k )
-            {
-                *buffer++ = lastValue[k];
-            }
+            *buffer++ = lastValue[k];
         }
     }
 }
