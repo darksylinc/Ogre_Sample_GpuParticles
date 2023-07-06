@@ -35,7 +35,10 @@ float getLinearDepth(float2 uv) {
 }
 @end
 
-float4 posToScreen(float4 pos) {
+// (-1.0, -1.0) - bottom left screen corner
+// ( 1.0,  1.0) - top right screen corner
+// Normalizes xyz, but contains w as well.
+float4 posToScreenWithW(float4 pos) {
     float4 pos2d = mul(pos, world.prevCameraVP);
     pos2d.xyz /= pos2d.w;
     return pos2d;
@@ -113,7 +116,7 @@ void main
 @property(useDepthTexture && affector_depth_collision)
     if(emitterCore.affectorDepthCollisionEnabled)
     {  
-        float4 pos2d = posToScreen(float4(particle.pos, 1.0));
+        float4 pos2d = posToScreenWithW(float4(particle.pos, 1.0));
         if(pos2d.x > -1.0 && pos2d.x < 1.0 && pos2d.y > -1.0 && pos2d.y < 1.0) {
             float2 uv = cameraOrthoRectToUnit(pos2d.xy);
 	        float linearDepth = getLinearDepth(uv);
@@ -139,13 +142,16 @@ void main
                     particle.dirVelocity *= 0.975;
                 }
             }
+
+          // // debug code checking if particle goes behind obstacle
+          // if(pos2d.w > linearDepth) {
+          //     particle.colour.x = 1.0;
+          //     particle.colour.y = 0.0;
+          //     particle.colour.z = 0.0;
+          // }
         }
     }
 @end
-    
-//    particle.colour.x = linearDepth;
-//    particle.colour.y = 1.0 - linearDepth;
-//    particle.colour.z = 0.0;
 
     particle.lifetime += elapsedTime;
     
